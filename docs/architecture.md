@@ -11,17 +11,37 @@ drivers can replace manual input without changing game physics.
 
 ```text
 src/breakout_vhal/
-  __main__.py      # module entrypoint
-  agent.py         # deterministic reflection-geometry controller
-  config.py        # dimensions, colors, gameplay constants, V-HAL constants
-  data_logger.py   # CSV writer for supervised training samples
-  game.py          # Pygame loop, rendering, input, collisions, game state
-  neural_agent.py  # PyTorch model loader and inference wrapper
-  vhal.py          # virtual hardware motion model
+  __main__.py             # module entrypoint
+  config.py               # dimensions, colors, gameplay constants, V-HAL constants
+  app/
+    game.py               # Pygame loop orchestration, input routing, run state
+    renderer.py           # all Pygame drawing, overlay, and status text
+    state.py              # play-state and control-mode enums
+    time_utils.py         # elapsed/finish time formatting
+  controllers/
+    manual.py             # keyboard target generation
+    mathematical.py       # deterministic reflection-geometry controller
+    neural.py             # PyTorch model loader and inference controller
+  gameplay/
+    collisions.py         # wall, paddle, and brick collision resolution
+    entities.py           # ball and brick data structures plus brick factory
+  hardware/
+    vhal.py               # virtual hardware motion model
+  training/
+    data_logger.py        # CSV writer for supervised training samples
+    mlp_model.py          # shared PyTorch MLP architecture
 scripts/
   collect_training_data.py # fast headless Stage 2 data collector
   train_mlp_model.py       # offline MLP training/export script
 ```
+
+Package ownership:
+
+- `app/` owns runtime orchestration and visual presentation.
+- `controllers/` owns all paddle target policies.
+- `gameplay/` owns game-world entities and collision rules.
+- `hardware/` owns V-HAL and later physical-device abstractions.
+- `training/` owns dataset and model-training support code.
 
 ## Runtime Flow
 
@@ -32,10 +52,10 @@ scripts/
      - Right arrow means target = 500 mm.
      - No horizontal input means target = current paddle position, causing a
        controlled stop.
-   - Mathematical Agent mode:
+   - Mathematical Controller mode:
      - The ball trajectory is projected to the paddle strike line.
      - The predicted impact X coordinate is converted to a 0-500 mm rail target.
-   - Neural Network mode:
+   - Neural Network Controller mode:
      - Upward ball motion sends the paddle to the center rest position.
      - Downward ball motion is scaled and passed through the trained MLP.
      - The predicted target is clamped to the 0-500 mm track.
@@ -44,7 +64,7 @@ scripts/
 5. Ball, brick, wall, paddle, scoring, and life collisions are resolved.
 6. The overlay renders telemetry from the game, controller, prediction, and
    V-HAL.
-7. When Mathematical Agent mode is active, a CSV row is written every 4 frames
+7. When Mathematical Controller mode is active, a CSV row is written every 4 frames
    only if the ball is falling.
 
 The run timer advances only while the ball is actively playing. It freezes into
@@ -55,6 +75,9 @@ The run timer advances only while the ball is actively playing. It freezes into
 - Input code may set V-HAL targets but must not directly edit paddle pixels.
 - Game collision code may read paddle position but must not bypass V-HAL
   acceleration or velocity limits.
+- Rendering code should read game state only; it should not mutate physics,
+  controls, score, or timers.
+- Entity modules should stay data-focused and avoid controller policy.
 - Future controllers should call the same target-position API used by keyboard
   input.
 - Hardware-specific details should stay outside the core Breakout game loop

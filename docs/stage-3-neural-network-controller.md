@@ -1,14 +1,14 @@
-# Stage 3: Neural Network Agent
+# Stage 3: Neural Network Controller
 
 ## Objective
 
 Replace hardcoded reflection geometry at runtime with a lightweight neural model
 that learns the mapping from observed ball state to the correct paddle target.
-The Neural Network Agent still controls the rail only through the V-HAL.
+The Neural Network Controller still controls the rail only through the V-HAL.
 
 ## Data Acquisition
 
-The Stage 2 Mathematical Agent is used as the label generator.
+The Stage 2 Mathematical Controller is used as the label generator.
 
 Run:
 
@@ -32,7 +32,7 @@ CSV schema:
 ball_x,ball_y,ball_dx,ball_dy,target_paddle_mm
 ```
 
-`target_paddle_mm` is the Stage 2 agent's desired paddle-center target, including
+`target_paddle_mm` is the Stage 2 controller's desired paddle-center target, including
 the anti-vertical-loop offset when that rule applies.
 
 ## Training
@@ -54,6 +54,9 @@ The training script:
   - `mlp_model.pt`
   - `scaler.json`
 
+These are generated artifacts and should not be committed. They are ignored by
+`.gitignore` and can be recreated from `training_data.csv` at any time.
+
 The model is deliberately small so PyTorch inference stays lightweight inside
 the 60 FPS Pygame loop.
 
@@ -65,15 +68,15 @@ training and gameplay may still work, but PyTorch emits a startup warning.
 Controls:
 
 - `1`: Manual mode.
-- `2`: Mathematical Agent mode.
-- `3`: Neural Network Agent mode.
+- `2`: Mathematical Controller mode.
+- `3`: Neural Network Controller mode.
 
-On game startup, the neural agent attempts to load `mlp_model.pt` and
+On game startup, the neural controller attempts to load `mlp_model.pt` and
 `scaler.json` from the project root.
 
 Runtime behavior:
 
-- If `ball_dy < 0`, the neural agent rests by sending the paddle to `250 mm`.
+- If `ball_dy < 0`, the neural controller rests by sending the paddle to `250 mm`.
 - If `ball_dy > 0`, it scales the current ball state and predicts
   `target_paddle_mm`.
 - The predicted coordinate is clamped to `0-500 mm`.

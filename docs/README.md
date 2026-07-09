@@ -7,7 +7,7 @@ linear track by a NEMA 17 stepper motor.
 
 ## Current Stage
 
-Stage 3: Neural Network Agent
+Stage 3: Neural Network Controller
 
 - Human control through left and right arrow keys.
 - Autonomous control by pressing `2`.
@@ -18,10 +18,12 @@ Stage 3: Neural Network Agent
 - The paddle is not moved directly by keyboard input. Keyboard input updates a
   V-HAL target position, and the V-HAL moves the paddle using velocity and
   acceleration limits.
-- The Mathematical Agent predicts the paddle target with reflection geometry and
+- The Mathematical Controller predicts the paddle target with reflection geometry and
   writes training samples to `training_data.csv`.
-- The Neural Network Agent loads `mlp_model.pt` and `scaler.json`, predicts the
+- The Neural Network Controller loads `mlp_model.pt` and `scaler.json`, predicts the
   paddle target from observed ball state, and routes that target through V-HAL.
+  Those model files are generated locally by the training script and are not
+  part of source control.
 - A live overlay exposes ball coordinates, ball velocity vector, paddle target,
   paddle position in pixels, paddle physical position in millimeters, paddle
   velocity, and V-HAL limits.
@@ -34,9 +36,9 @@ Stage 3: Neural Network Agent
   constraints.
 - [Stage 1 Manual Sandbox](stage-1-manual-sandbox.md): gameplay scope and manual
   control behavior.
-- [Stage 2 Mathematical Agent](stage-2-mathematical-agent.md): autonomous
+- [Stage 2 Mathematical Controller](stage-2-mathematical-controller.md): autonomous
   geometry controller and data harvesting schema.
-- [Stage 3 Neural Network Agent](stage-3-neural-network-agent.md): data
+- [Stage 3 Neural Network Controller](stage-3-neural-network-controller.md): data
   acquisition, MLP training, and neural runtime control.
 
 ## Run

@@ -12,7 +12,7 @@ python3 run_stage1.py
 Controls:
 
 - `1`: manual mode
-- `2`: mathematical agent mode
+- `2`: mathematical controller mode
 - `3`: neural network mode
 - Space: launch/restart
 - Escape: quit
@@ -25,7 +25,7 @@ python3 scripts/train_mlp_model.py
 python3 run_stage1.py
 ```
 
-When the mathematical agent is active, downward-ball samples are written every 4
+When the mathematical controller is active, downward-ball samples are written every 4
 frames to `training_data.csv`.
 
 Or install the package in editable mode:

@@ -9,7 +9,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from breakout_vhal.game import main
+from breakout_vhal.app.game import main
 
 
 if __name__ == "__main__":

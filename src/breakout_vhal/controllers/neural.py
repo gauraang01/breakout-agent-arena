@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import VHAL
+from ..config import VHAL
 
 
 @dataclass(frozen=True)
@@ -14,11 +14,11 @@ class NeuralPrediction:
     reason: str = ""
 
 
-class NeuralNetworkAgent:
+class NeuralNetworkController:
     def __init__(
         self,
-        model_path: Path = Path("mlp_model.pt"),
-        scaler_path: Path = Path("scaler.json"),
+        model_path: Path = Path("models/mlp_model.pt"),
+        scaler_path: Path = Path("models/scaler.json"),
     ) -> None:
         self.model_path = model_path
         self.scaler_path = scaler_path
@@ -84,7 +84,7 @@ class NeuralNetworkAgent:
             return
 
         try:
-            from .mlp_model import build_paddle_mlp
+            from ..training.mlp_model import build_paddle_mlp
 
             scaler = json.loads(self.scaler_path.read_text(encoding="utf-8"))
             self.feature_mean = [float(value) for value in scaler["mean"]]

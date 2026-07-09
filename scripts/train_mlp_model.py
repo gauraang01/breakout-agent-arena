@@ -14,7 +14,7 @@ if str(SRC) not in sys.path:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train the Stage 3 MLP paddle agent.")
+    parser = argparse.ArgumentParser(description="Train the Stage 3 MLP paddle controller.")
     parser.add_argument(
         "--input",
         type=Path,
@@ -24,13 +24,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-output",
         type=Path,
-        default=ROOT / "mlp_model.pt",
+        default=ROOT / "models"/ "mlp_model.pt",
         help="Output PyTorch model checkpoint path.",
     )
     parser.add_argument(
         "--scaler-output",
         type=Path,
-        default=ROOT / "scaler.json",
+        default=ROOT / "models"/ "scaler.json",
         help="Output JSON feature scaler path.",
     )
     parser.add_argument(
@@ -55,7 +55,7 @@ def main() -> None:
         import torch.nn as nn
         from torch.utils.data import DataLoader, TensorDataset
 
-        from breakout_vhal.mlp_model import build_paddle_mlp
+        from breakout_vhal.training.mlp_model import build_paddle_mlp
     except ImportError as exc:
         raise SystemExit(
             "Missing ML dependency. Install with: python3 -m pip install -r requirements.txt"

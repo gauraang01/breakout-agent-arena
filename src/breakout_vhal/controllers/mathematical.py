@@ -1,23 +1,23 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import pygame
 
-from .config import BALL, PADDLE
+from ..config import BALL, PADDLE
 
 
 @dataclass(frozen=True)
-class Prediction:
+class MathematicalPrediction:
     impact_x_px: float
     target_x_px: float
     target_mm: float
     angled_hit: bool = False
 
 
-class MathematicalAgent:
+class MathematicalController:
     """Deterministic reflection-geometry paddle controller."""
 
     def predict(
@@ -32,7 +32,7 @@ class MathematicalAgent:
         paddle_max_center_x: float,
         track_length_mm: float,
         brick_rects: Sequence[pygame.Rect] = (),
-    ) -> Prediction:
+    ) -> MathematicalPrediction:
         impact_x = predict_reflected_x(
             ball_x=ball_x,
             ball_y=ball_y,
@@ -65,7 +65,7 @@ class MathematicalAgent:
             paddle_max_center_x,
             track_length_mm,
         )
-        return Prediction(
+        return MathematicalPrediction(
             impact_x_px=impact_x,
             target_x_px=target_x,
             target_mm=target_mm,
