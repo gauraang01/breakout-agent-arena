@@ -103,6 +103,12 @@ class VirtualPaddleHAL:
         normalized = self.target_mm / self.track_length_mm
         return min_x + normalized * (max_x - min_x)
 
+    def pixel_center_to_position_mm(self, pixel_x: float, min_x: float, max_x: float) -> float:
+        if math.isclose(min_x, max_x):
+            return 0.0
+        normalized = (pixel_x - min_x) / (max_x - min_x)
+        return self._clamp(normalized * self.track_length_mm)
+
     def _clamp(self, value: float) -> float:
         return max(0.0, min(self.track_length_mm, value))
 

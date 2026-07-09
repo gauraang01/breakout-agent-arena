@@ -12,7 +12,9 @@ drivers can replace manual input without changing game physics.
 ```text
 src/breakout_vhal/
   __main__.py      # module entrypoint
+  agent.py         # deterministic reflection-geometry controller
   config.py        # dimensions, colors, gameplay constants, V-HAL constants
+  data_logger.py   # CSV writer for supervised training samples
   game.py          # Pygame loop, rendering, input, collisions, game state
   vhal.py          # virtual hardware motion model
 ```
@@ -20,15 +22,21 @@ src/breakout_vhal/
 ## Runtime Flow
 
 1. Pygame initializes the window and game entities.
-2. The keyboard handler updates a target position in the V-HAL:
-   - Left arrow means target = 0 mm.
-   - Right arrow means target = 500 mm.
-   - No horizontal input means target = current paddle position, causing a
-     controlled stop.
+2. The active controller updates a target position in the V-HAL:
+   - Manual mode:
+     - Left arrow means target = 0 mm.
+     - Right arrow means target = 500 mm.
+     - No horizontal input means target = current paddle position, causing a
+       controlled stop.
+   - Mathematical Agent mode:
+     - The ball trajectory is projected to the paddle strike line.
+     - The predicted impact X coordinate is converted to a 0-500 mm rail target.
 3. Each frame advances the V-HAL with `dt`.
 4. The game reads the V-HAL paddle position and maps it to the screen.
 5. Ball, brick, wall, paddle, scoring, and life collisions are resolved.
-6. The overlay renders telemetry from both the game and V-HAL.
+6. The overlay renders telemetry from the game, controller, prediction, and
+   V-HAL.
+7. When Mathematical Agent mode is active, a CSV row is written every 10 frames.
 
 ## Separation Rules
 
@@ -39,6 +47,8 @@ src/breakout_vhal/
   input.
 - Hardware-specific details should stay outside the core Breakout game loop
   until a later hardware stage.
+- Data harvesting should log controller labels separately from actual V-HAL
+  position so later models can learn the ideal target and compare actuator lag.
 
 ## Extension Points
 

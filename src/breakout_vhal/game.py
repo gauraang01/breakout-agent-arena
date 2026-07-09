@@ -4,10 +4,13 @@ import math
 import random
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 import pygame
 
+from .agent import MathematicalAgent, Prediction
 from .config import BALL, BRICK_COLORS, BRICKS, COLORS, PADDLE, SCREEN, VHAL
+from .data_logger import TrainingDataLogger
 from .vhal import VirtualPaddleHAL
 
 
@@ -17,6 +20,11 @@ class PlayState(Enum):
     LOST_BALL = "lost_ball"
     CLEARED = "cleared"
     GAME_OVER = "game_over"
+
+
+class ControlMode(Enum):
+    MANUAL = "manual"
+    MATHEMATICAL_AGENT = "mathematical_agent"
 
 
 @dataclass
@@ -46,7 +54,7 @@ class BallState:
 class BreakoutGame:
     def __init__(self) -> None:
         pygame.init()
-        pygame.display.set_caption("Breakout V-HAL - Stage 1 Manual Sandbox")
+        pygame.display.set_caption("Breakout V-HAL - Stage 2 Mathematical Agent")
         self.screen = pygame.display.set_mode((SCREEN.width, SCREEN.height))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 22)
@@ -65,20 +73,28 @@ class BreakoutGame:
         )
         self.ball = self._new_attached_ball()
         self.bricks = self._create_bricks()
+        self.agent = MathematicalAgent()
+        self.prediction: Prediction | None = None
+        self.control_mode = ControlMode.MANUAL
+        self.frame = 0
+        self.training_logger = TrainingDataLogger(Path("training_data.csv"))
         self.state = PlayState.READY
         self.score = 0
         self.lives = 3
         self.running = True
 
     def run(self) -> None:
-        while self.running:
-            dt_s = min(self.clock.tick(SCREEN.fps) / 1000.0, 1.0 / 30.0)
-            self._handle_events()
-            self._handle_input()
-            self._update(dt_s)
-            self._draw()
-
-        pygame.quit()
+        try:
+            while self.running:
+                dt_s = min(self.clock.tick(SCREEN.fps) / 1000.0, 1.0 / 30.0)
+                self.frame += 1
+                self._handle_events()
+                self._handle_input()
+                self._update(dt_s)
+                self._draw()
+        finally:
+            self.training_logger.close()
+            pygame.quit()
 
     def _handle_events(self) -> None:
         for event in pygame.event.get():
@@ -89,6 +105,11 @@ class BreakoutGame:
                     self.running = False
                 elif event.key == pygame.K_SPACE:
                     self._handle_space()
+                elif event.key == pygame.K_1:
+                    self.control_mode = ControlMode.MANUAL
+                    self.prediction = None
+                elif event.key == pygame.K_2:
+                    self.control_mode = ControlMode.MATHEMATICAL_AGENT
 
     def _handle_space(self) -> None:
         if self.state in {PlayState.READY, PlayState.LOST_BALL}:
@@ -98,6 +119,10 @@ class BreakoutGame:
             self._restart_game()
 
     def _handle_input(self) -> None:
+        if self.control_mode == ControlMode.MATHEMATICAL_AGENT:
+            self._handle_agent_input()
+            return
+
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT] and not keys[pygame.K_RIGHT]:
             self.vhal.set_target_mm(0.0)
@@ -105,6 +130,21 @@ class BreakoutGame:
             self.vhal.set_target_mm(VHAL.track_length_mm)
         elif self.state == PlayState.PLAYING:
             self.vhal.hold_position()
+
+    def _handle_agent_input(self) -> None:
+        self.prediction = self.agent.predict(
+            ball_x=self.ball.x,
+            ball_y=self.ball.y,
+            ball_dx=self.ball.dx,
+            ball_dy=self.ball.dy,
+            strike_y=self.paddle_y - BALL.radius,
+            field_rect=self.field_rect,
+            paddle_min_center_x=self.paddle_min_center_x,
+            paddle_max_center_x=self.paddle_max_center_x,
+            track_length_mm=VHAL.track_length_mm,
+            brick_rects=[brick.rect for brick in self.bricks if brick.alive],
+        )
+        self.vhal.set_target_mm(self.prediction.target_mm)
 
     def _update(self, dt_s: float) -> None:
         self.vhal.update(dt_s)
@@ -125,6 +165,8 @@ class BreakoutGame:
             self._lose_ball()
         elif all(not brick.alive for brick in self.bricks):
             self.state = PlayState.CLEARED
+
+        self._log_training_sample()
 
     def _resolve_wall_collisions(self) -> None:
         if self.ball.x - BALL.radius <= self.field_rect.left:
@@ -192,6 +234,7 @@ class BreakoutGame:
         )
         self.ball = self._new_attached_ball()
         self.state = PlayState.READY
+        self.prediction = None
 
     def _launch_ball(self) -> None:
         angle = math.radians(random.choice([58, 64, 116, 122]))
@@ -230,6 +273,26 @@ class BreakoutGame:
         return self.vhal.target_to_pixel_center(
             self.paddle_min_center_x,
             self.paddle_max_center_x,
+        )
+
+    def _log_training_sample(self) -> None:
+        if (
+            self.control_mode != ControlMode.MATHEMATICAL_AGENT
+            or self.state != PlayState.PLAYING
+            or self.prediction is None
+        ):
+            return
+
+        self.training_logger.log(
+            frame=self.frame,
+            mode=self.control_mode.value,
+            ball_x=self.ball.x,
+            ball_y=self.ball.y,
+            ball_dx=self.ball.dx,
+            ball_dy=self.ball.dy,
+            correct_paddle_x_px=self.prediction.target_x_px,
+            correct_paddle_mm=self.prediction.target_mm,
+            actual_paddle_mm=self.vhal.position_mm,
         )
 
     def _create_bricks(self) -> list[Brick]:
@@ -287,16 +350,22 @@ class BreakoutGame:
         pygame.draw.rect(self.screen, (197, 244, 255), paddle_rect, width=2, border_radius=4)
 
     def _draw_overlay(self) -> None:
-        overlay_rect = pygame.Rect(48, SCREEN.height - 154, 390, 106)
+        overlay_rect = pygame.Rect(48, SCREEN.height - 190, 430, 142)
         pygame.draw.rect(self.screen, COLORS["overlay"], overlay_rect, border_radius=4)
         pygame.draw.rect(self.screen, COLORS["field_border"], overlay_rect, width=1, border_radius=4)
 
         paddle_rect = self._paddle_rect()
+        predicted_x = self.prediction.impact_x_px if self.prediction else self.ball.x
+        target_x = self.prediction.target_x_px if self.prediction else self._target_x()
+        angled = "yes" if self.prediction and self.prediction.angled_hit else "no"
         lines = [
+            f"Mode: {self.control_mode.value}  (1 manual, 2 agent)",
             f"Ball X,Y: {self.ball.x:7.1f}, {self.ball.y:7.1f}",
             f"Ball dX,dY: {self.ball.dx:7.1f}, {self.ball.dy:7.1f} px/s",
             f"Paddle: {paddle_rect.centerx:6.1f}px | {self.vhal.position_mm:6.1f}mm",
             f"Target: {self.vhal.target_mm:6.1f}mm | V: {self.vhal.velocity_mm_s:7.1f}mm/s",
+            f"Impact X: {predicted_x:7.1f}px | Target X: {target_x:7.1f}px",
+            f"Forced angled hit: {angled}",
             f"Vmax: {self.vhal.max_velocity_mm_s:.0f}mm/s | Amax: {self.vhal.max_acceleration_mm_s2:.0f}mm/s2",
         ]
         for index, line in enumerate(lines):
@@ -304,7 +373,10 @@ class BreakoutGame:
             surface = self.small_font.render(line, True, color)
             self.screen.blit(surface, (overlay_rect.left + 14, overlay_rect.top + 10 + index * 18))
 
-        status = f"Score {self.score}   Lives {self.lives}   State {self.state.value}"
+        status = (
+            f"Score {self.score}   Lives {self.lives}   State {self.state.value}   "
+            f"Mode {self.control_mode.value}"
+        )
         surface = self.font.render(status, True, COLORS["text"])
         self.screen.blit(surface, (self.field_rect.left, self.field_rect.top - 26))
 
