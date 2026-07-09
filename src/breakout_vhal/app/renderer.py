@@ -3,7 +3,7 @@ from __future__ import annotations
 import pygame
 
 from ..config import BALL, COLORS, SCREEN
-from .state import PlayState
+from .state import PlayState, ControlMode
 from .time_utils import format_optional_time, format_time
 
 
@@ -16,10 +16,14 @@ class GameRenderer:
 
     def draw(self, game) -> None:
         self.screen.fill(COLORS["background"])
+        
+        is_mode_4 = game.control_mode == ControlMode.LLM_AGENT
+        field_border_color = COLORS["agentic_purple"] if is_mode_4 else COLORS["field_border"]
+        
         pygame.draw.rect(self.screen, COLORS["field"], game.field_rect, border_radius=4)
         pygame.draw.rect(
             self.screen,
-            COLORS["field_border"],
+            field_border_color,
             game.field_rect,
             width=2,
             border_radius=4,
@@ -34,6 +38,7 @@ class GameRenderer:
             BALL.radius,
         )
         self._draw_overlay(game)
+        self._draw_sidebar(game)
         self._draw_state_message(game)
         pygame.display.flip()
 
@@ -70,7 +75,7 @@ class GameRenderer:
         angled = "yes" if game.prediction and game.prediction.angled_hit else "no"
         neural_status = "loaded" if game.neural_controller.available else game.neural_controller.load_error
         lines = [
-            f"Mode: {game.control_mode.value}  (1 manual, 2 math, 3 neural)",
+            f"Mode: {game.control_mode.value}  (1 manual, 2 math, 3 neural, 4 agent)",
             f"Time: {format_time(game.elapsed_time_s)} | Finish: {format_optional_time(game.final_time_s)}",
             f"Ball X,Y: {game.ball.x:7.1f}, {game.ball.y:7.1f}",
             f"Ball dX,dY: {game.ball.dx:7.1f}, {game.ball.dy:7.1f} px/s",
@@ -110,3 +115,23 @@ class GameRenderer:
         rect = surface.get_rect(center=(game.field_rect.centerx, game.field_rect.centery + 60))
         self.screen.blit(shadow, rect.move(2, 2))
         self.screen.blit(surface, rect)
+
+    def _draw_sidebar(self, game) -> None:
+        sidebar_rect = game.sidebar_rect
+        pygame.draw.rect(self.screen, COLORS["background"], sidebar_rect)
+        
+        is_mode_4 = game.control_mode == ControlMode.LLM_AGENT
+        sidebar_border_color = COLORS["agentic_purple"] if is_mode_4 else COLORS["field_border"]
+        
+        pygame.draw.line(self.screen, sidebar_border_color, sidebar_rect.topleft, sidebar_rect.bottomleft, 2)
+        
+        title_color = COLORS["agentic_purple"] if is_mode_4 else COLORS["muted_text"]
+        title = self.large_font.render("Diagnostic UI", True, title_color)
+        self.screen.blit(title, (sidebar_rect.left + 24, sidebar_rect.top + 32))
+        
+        y_offset = 96
+        if is_mode_4:
+            for trace in game.llm_controller.traces:
+                surface = self.small_font.render(trace, True, COLORS["agentic_purple"])
+                self.screen.blit(surface, (sidebar_rect.left + 24, sidebar_rect.top + y_offset))
+                y_offset += 24

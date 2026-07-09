@@ -9,6 +9,7 @@ import pygame
 from ..controllers.manual import ManualController
 from ..controllers.mathematical import MathematicalController, MathematicalPrediction
 from ..controllers.neural import NeuralNetworkController, NeuralPrediction
+from ..controllers.llm import LLMAgentController
 from ..config import BALL, GAMEPLAY, PADDLE, SCREEN, VHAL
 from ..gameplay.collisions import (
     resolve_brick_collision,
@@ -30,7 +31,8 @@ class BreakoutGame:
         self.clock = pygame.time.Clock()
         self.renderer = GameRenderer(self.screen)
 
-        self.field_rect = pygame.Rect(32, 32, SCREEN.width - 64, SCREEN.height - 64)
+        self.field_rect = pygame.Rect(32, 32, SCREEN.arena_width - 64, SCREEN.height - 64)
+        self.sidebar_rect = pygame.Rect(SCREEN.arena_width, 0, SCREEN.sidebar_width, SCREEN.height)
         self.paddle_y = self.field_rect.bottom - PADDLE.y_offset
         self.paddle_min_center_x = self.field_rect.left + PADDLE.width / 2
         self.paddle_max_center_x = self.field_rect.right - PADDLE.width / 2
@@ -42,6 +44,9 @@ class BreakoutGame:
         self.manual_controller = ManualController()
         self.mathematical_controller = MathematicalController()
         self.neural_controller = NeuralNetworkController()
+        self.llm_controller = LLMAgentController(self.mathematical_controller)
+        self.llm_acted_this_fall = False
+        
         self.prediction: MathematicalPrediction | None = None
         self.neural_prediction: NeuralPrediction | None = None
         self.training_logger = TrainingDataLogger(Path("training_data.csv"))
@@ -108,6 +113,11 @@ class BreakoutGame:
         elif key == pygame.K_3:
             self.control_mode = ControlMode.NEURAL_NETWORK
             self.prediction = None
+        elif key == pygame.K_4:
+            self.control_mode = ControlMode.LLM_AGENT
+            self.prediction = None
+            self.neural_prediction = None
+            self.llm_controller.clear_traces()
 
     def _handle_space(self) -> None:
         if self.state in {PlayState.READY, PlayState.LOST_BALL}:
@@ -122,6 +132,9 @@ class BreakoutGame:
             return
         if self.control_mode == ControlMode.NEURAL_NETWORK:
             self._handle_neural_controller_input()
+            return
+        if self.control_mode == ControlMode.LLM_AGENT:
+            self._handle_llm_agent_input()
             return
         self._handle_manual_controller_input()
 
@@ -153,6 +166,37 @@ class BreakoutGame:
             ball_dy=self.ball.dy,
         )
         self.vhal.set_target_mm(self.neural_prediction.target_mm)
+
+    def _handle_llm_agent_input(self) -> None:
+        if self.ball.dy < 0:
+            self.llm_acted_this_fall = False
+            return
+            
+        if self.ball.dy > 0 and self.ball.y > 400 and not self.llm_acted_this_fall:
+            self.llm_acted_this_fall = True
+            
+            def log_trace(msg: str):
+                self.llm_controller.traces.append(msg)
+                
+            def draw_update():
+                self.renderer.draw(self)
+                pygame.event.pump()
+                
+            target_mm = self.llm_controller.predict_target_mm(
+                ball_x=self.ball.x,
+                ball_y=self.ball.y,
+                ball_dx=self.ball.dx,
+                ball_dy=self.ball.dy,
+                strike_y=self.paddle_y - BALL.radius,
+                field_rect=self.field_rect,
+                paddle_min_center_x=self.paddle_min_center_x,
+                paddle_max_center_x=self.paddle_max_center_x,
+                track_length_mm=VHAL.track_length_mm,
+                brick_rects=[brick.rect for brick in self.bricks if brick.alive],
+                log_callback=log_trace,
+                draw_callback=draw_update
+            )
+            self.vhal.set_target_mm(target_mm)
 
     def _update(self, dt_s: float) -> None:
         self.vhal.update(dt_s)

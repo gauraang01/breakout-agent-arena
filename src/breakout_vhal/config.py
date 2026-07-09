@@ -5,9 +5,11 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ScreenConfig:
-    width: int = 1280
+    width: int = 1680
     height: int = 800
     fps: int = 60
+    arena_width: int = 1280
+    sidebar_width: int = 400
 
 
 @dataclass(frozen=True)
@@ -45,12 +47,18 @@ class GameplayConfig:
     lives: int = 1
 
 
+@dataclass(frozen=True)
+class LLMConfig:
+    model: str = "qwen2.5:1.5b"
+
+
 SCREEN = ScreenConfig()
 VHAL = VHALConfig()
 PADDLE = PaddleConfig()
 BALL = BallConfig()
 BRICKS = BrickConfig()
 GAMEPLAY = GameplayConfig()
+LLM = LLMConfig()
 
 
 COLORS = {
@@ -64,6 +72,7 @@ COLORS = {
     "ball": (248, 248, 242),
     "overlay": (28, 33, 42),
     "danger": (255, 97, 109),
+    "agentic_purple": (155, 89, 182),
 }
 
 BRICK_COLORS = [
