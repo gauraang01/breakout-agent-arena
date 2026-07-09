@@ -1,4 +1,4 @@
-# Breakout V-HAL Project
+# Breakout Project
 
 This project builds a Breakout-style game in stages around a Virtual Hardware
 Abstraction Layer (V-HAL). The game is intentionally constrained by physical
@@ -59,5 +59,5 @@ Or install the package in editable mode:
 
 ```bash
 python3 -m pip install -e .
-python3 -m breakout_vhal
+python3 -m breakout
 ```

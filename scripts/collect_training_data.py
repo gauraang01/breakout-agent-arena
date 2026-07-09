@@ -13,9 +13,9 @@ if str(SRC) not in sys.path:
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
-from breakout_vhal.app.game import BreakoutGame
-from breakout_vhal.app.state import ControlMode, PlayState
-from breakout_vhal.training.data_logger import TrainingDataLogger
+from breakout.app.game import BreakoutGame
+from breakout.app.state import ControlMode, PlayState
+from breakout.training.data_logger import TrainingDataLogger
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,14 +47,14 @@ def main() -> None:
     game = BreakoutGame()
     game.training_logger.close()
     game.training_logger = TrainingDataLogger(args.output, sample_interval_frames=args.interval)
-    game.control_mode = ControlMode.MATHEMATICAL_CONTROLLER
+    game.harvest_training_data = True
     game._launch_ball()
     game.state = PlayState.PLAYING
 
     try:
         while game.training_logger.rows_written < args.rows:
             game.frame += 1
-            game._handle_mathematical_controller_input()
+            game.force_predict_trajectory()
             game._update(args.dt)
 
             if game.state in {PlayState.LOST_BALL, PlayState.READY}:
@@ -62,7 +62,7 @@ def main() -> None:
                 game.state = PlayState.PLAYING
             elif game.state in {PlayState.CLEARED, PlayState.GAME_OVER}:
                 game._restart_game()
-                game.control_mode = ControlMode.MATHEMATICAL_CONTROLLER
+                game.harvest_training_data = True
                 game._launch_ball()
                 game.state = PlayState.PLAYING
 

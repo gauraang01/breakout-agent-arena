@@ -10,14 +10,14 @@ from ..config import BALL, PADDLE
 
 
 @dataclass(frozen=True)
-class MathematicalPrediction:
+class TrajectoryPrediction:
     impact_x_px: float
     target_x_px: float
     target_mm: float
     angled_hit: bool = False
 
 
-class MathematicalController:
+class TrajectoryPredictor:
     """Deterministic reflection-geometry paddle controller."""
 
     def predict(
@@ -32,7 +32,7 @@ class MathematicalController:
         paddle_max_center_x: float,
         track_length_mm: float,
         brick_rects: Sequence[pygame.Rect] = (),
-    ) -> MathematicalPrediction:
+    ) -> TrajectoryPrediction:
         impact_x = predict_reflected_x(
             ball_x=ball_x,
             ball_y=ball_y,
@@ -65,7 +65,7 @@ class MathematicalController:
             paddle_max_center_x,
             track_length_mm,
         )
-        return MathematicalPrediction(
+        return TrajectoryPrediction(
             impact_x_px=impact_x,
             target_x_px=target_x,
             target_mm=target_mm,

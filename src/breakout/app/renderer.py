@@ -75,7 +75,7 @@ class GameRenderer:
         angled = "yes" if game.prediction and game.prediction.angled_hit else "no"
         neural_status = "loaded" if game.neural_controller.available else game.neural_controller.load_error
         lines = [
-            f"Mode: {game.control_mode.value}  (1 manual, 2 math, 3 neural, 4 agent)",
+            f"Mode: {game.control_mode.value}  (1 manual, 2 neural, 3 agent)",
             f"Time: {format_time(game.elapsed_time_s)} | Finish: {format_optional_time(game.final_time_s)}",
             f"Ball X,Y: {game.ball.x:7.1f}, {game.ball.y:7.1f}",
             f"Ball dX,dY: {game.ball.dx:7.1f}, {game.ball.dy:7.1f} px/s",

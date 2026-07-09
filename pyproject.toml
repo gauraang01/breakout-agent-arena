@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "breakout-vhal"
+name = "breakout"
 version = "0.1.0"
 description = "Breakout sandbox constrained by a virtual hardware abstraction layer."
 requires-python = ">=3.10"

@@ -7,8 +7,8 @@ from typing import Callable, Any
 from ..config import LLM
 
 class LLMAgentController:
-    def __init__(self, math_controller):
-        self.math_controller = math_controller
+    def __init__(self, trajectory_predictor):
+        self.trajectory_predictor = trajectory_predictor
         self.traces: list[str] = []
 
     def clear_traces(self) -> None:
@@ -73,7 +73,7 @@ class LLMAgentController:
 
             
             # Step 2: Python Execution
-            prediction = self.math_controller.predict(
+            prediction = self.trajectory_predictor.predict(
                 ball_x=ball_x, ball_y=ball_y, ball_dx=ball_dx, ball_dy=ball_dy,
                 strike_y=strike_y, field_rect=field_rect, paddle_min_center_x=paddle_min_center_x,
                 paddle_max_center_x=paddle_max_center_x, track_length_mm=track_length_mm,
@@ -81,7 +81,7 @@ class LLMAgentController:
             )
             target_mm = prediction.target_mm
             
-            log_callback(f"[PYTHON] Executing MathematicalController... Output: {target_mm:.1f}mm")
+            log_callback(f"[PYTHON] Executing TrajectoryPredictor... Output: {target_mm:.1f}mm")
             draw_callback()
 
             

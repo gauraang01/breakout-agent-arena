@@ -55,7 +55,7 @@ def main() -> None:
         import torch.nn as nn
         from torch.utils.data import DataLoader, TensorDataset
 
-        from breakout_vhal.training.mlp_model import build_paddle_mlp
+        from breakout.training.mlp_model import build_paddle_mlp
     except ImportError as exc:
         raise SystemExit(
             "Missing ML dependency. Install with: python3 -m pip install -r requirements.txt"

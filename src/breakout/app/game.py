@@ -7,7 +7,7 @@ from pathlib import Path
 import pygame
 
 from ..controllers.manual import ManualController
-from ..controllers.mathematical import MathematicalController, MathematicalPrediction
+from ..tools.trajectory_predictor import TrajectoryPredictor, TrajectoryPrediction
 from ..controllers.neural import NeuralNetworkController, NeuralPrediction
 from ..controllers.llm import LLMAgentController
 from ..config import BALL, GAMEPLAY, PADDLE, SCREEN, VHAL
@@ -42,12 +42,13 @@ class BreakoutGame:
         self.bricks: list[Brick] = create_bricks(self.field_rect)
 
         self.manual_controller = ManualController()
-        self.mathematical_controller = MathematicalController()
+        self.trajectory_predictor = TrajectoryPredictor()
         self.neural_controller = NeuralNetworkController()
-        self.llm_controller = LLMAgentController(self.mathematical_controller)
+        self.llm_controller = LLMAgentController(self.trajectory_predictor)
         self.llm_acted_this_fall = False
+        self.harvest_training_data = False
         
-        self.prediction: MathematicalPrediction | None = None
+        self.prediction: TrajectoryPrediction | None = None
         self.neural_prediction: NeuralPrediction | None = None
         self.training_logger = TrainingDataLogger(Path("training_data.csv"))
 
@@ -108,12 +109,9 @@ class BreakoutGame:
             self.prediction = None
             self.neural_prediction = None
         elif key == pygame.K_2:
-            self.control_mode = ControlMode.MATHEMATICAL_CONTROLLER
-            self.neural_prediction = None
-        elif key == pygame.K_3:
             self.control_mode = ControlMode.NEURAL_NETWORK
             self.prediction = None
-        elif key == pygame.K_4:
+        elif key == pygame.K_3:
             self.control_mode = ControlMode.LLM_AGENT
             self.prediction = None
             self.neural_prediction = None
@@ -127,9 +125,6 @@ class BreakoutGame:
             self._restart_game()
 
     def _handle_input(self) -> None:
-        if self.control_mode == ControlMode.MATHEMATICAL_CONTROLLER:
-            self._handle_mathematical_controller_input()
-            return
         if self.control_mode == ControlMode.NEURAL_NETWORK:
             self._handle_neural_controller_input()
             return
@@ -141,9 +136,9 @@ class BreakoutGame:
     def _handle_manual_controller_input(self) -> None:
         self.manual_controller.update_target(self.vhal, self.state)
 
-    def _handle_mathematical_controller_input(self) -> None:
+    def force_predict_trajectory(self) -> None:
         self.neural_prediction = None
-        self.prediction = self.mathematical_controller.predict(
+        self.prediction = self.trajectory_predictor.predict(
             ball_x=self.ball.x,
             ball_y=self.ball.y,
             ball_dx=self.ball.dx,
@@ -279,7 +274,7 @@ class BreakoutGame:
 
     def _log_training_sample(self) -> None:
         if (
-            self.control_mode != ControlMode.MATHEMATICAL_CONTROLLER
+            not self.harvest_training_data
             or self.state != PlayState.PLAYING
             or self.prediction is None
         ):

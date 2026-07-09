@@ -1,4 +1,4 @@
-# Breakout V-HAL
+# Breakout
 
 A staged Breakout project where the paddle is constrained by a Virtual Hardware
 Abstraction Layer that simulates a 0-500 mm physical rail.
@@ -32,7 +32,7 @@ Or install the package in editable mode:
 
 ```bash
 python3 -m pip install -e .
-python3 -m breakout_vhal
+python3 -m breakout
 ```
 
 Project planning and architecture notes are in [docs/README.md](docs/README.md).
