@@ -7,19 +7,19 @@ linear track by a NEMA 17 stepper motor.
 
 ## Current Stage
 
-Stage 3: Neural Network Controller
+Stage 4: LLM Agent via Ollama
 
-- Human control through left and right arrow keys.
-- Autonomous control by pressing `2`.
-- Neural-network control by pressing `3` after training.
+- Human control through left and right arrow keys (Mode 1).
+- Neural-network control (Mode 2) after training.
+- LLM Agent control (Mode 3) using a local Ollama model to predict targets via tool-calling.
 - A fully playable Breakout field with ball, bricks, paddle, scoring, lives, and
   restart flow.
 - The game currently uses one life and records elapsed/finish time in the UI.
 - The paddle is not moved directly by keyboard input. Keyboard input updates a
   V-HAL target position, and the V-HAL moves the paddle using velocity and
   acceleration limits.
-- The Mathematical Controller predicts the paddle target with reflection geometry and
-  writes training samples to `training_data.csv`.
+- The Trajectory Predictor predicts the paddle target with reflection geometry and
+  can silently write training samples to `training_data.csv`.
 - The Neural Network Controller loads `mlp_model.pt` and `scaler.json`, predicts the
   paddle target from observed ball state, and routes that target through V-HAL.
   Those model files are generated locally by the training script and are not
@@ -40,11 +40,12 @@ Stage 3: Neural Network Controller
   geometry controller and data harvesting schema.
 - [Stage 3 Neural Network Controller](stage-3-neural-network-controller.md): data
   acquisition, MLP training, and neural runtime control.
+- [Stage 4 LLM Agent](stage-4-llm-agent.md): Local Ollama Tool-calling loop and Bullet Time architecture.
 
 ## Run
 
 ```bash
-python3 run_stage1.py
+python3 start.py
 ```
 
 Stage 3 training workflow:
@@ -52,7 +53,7 @@ Stage 3 training workflow:
 ```bash
 python3 scripts/collect_training_data.py --rows 20000
 python3 scripts/train_mlp_model.py
-python3 run_stage1.py
+python3 start.py
 ```
 
 Or install the package in editable mode:
