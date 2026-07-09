@@ -12,6 +12,7 @@ class GameRenderer:
         self.screen = screen
         self.font = pygame.font.Font(None, 22)
         self.large_font = pygame.font.Font(None, 48)
+        self.medium_font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 18)
 
     def draw(self, game) -> None:
@@ -121,17 +122,89 @@ class GameRenderer:
         pygame.draw.rect(self.screen, COLORS["background"], sidebar_rect)
         
         is_mode_4 = game.control_mode == ControlMode.LLM_AGENT
-        sidebar_border_color = COLORS["agentic_purple"] if is_mode_4 else COLORS["field_border"]
+        is_mode_3 = game.control_mode == ControlMode.NEURAL_NETWORK
         
+        if is_mode_4:
+            sidebar_border_color = COLORS["agentic_purple"]
+            title_color = COLORS["agentic_purple"]
+            title_text = "LLM Agent Telemetry"
+        elif is_mode_3:
+            sidebar_border_color = COLORS["paddle"]
+            title_color = COLORS["paddle"]
+            title_text = "Neural Net Telemetry"
+        else:
+            sidebar_border_color = COLORS["field_border"]
+            title_color = COLORS["muted_text"]
+            title_text = "Controller Telemetry"
+
         pygame.draw.line(self.screen, sidebar_border_color, sidebar_rect.topleft, sidebar_rect.bottomleft, 2)
         
-        title_color = COLORS["agentic_purple"] if is_mode_4 else COLORS["muted_text"]
-        title = self.large_font.render("Diagnostic UI", True, title_color)
+        title = self.medium_font.render(title_text, True, title_color)
         self.screen.blit(title, (sidebar_rect.left + 24, sidebar_rect.top + 32))
         
         y_offset = 96
+        
+        def draw_wrapped_text(text: str, color: tuple, y: int) -> int:
+            words = text.split(' ')
+            space_w, _ = self.small_font.size(' ')
+            max_width = sidebar_rect.width - 48
+            line_words = []
+            current_w = 0
+            
+            for word in words:
+                word_w, _ = self.small_font.size(word)
+                if word_w > max_width:
+                    if line_words:
+                        surface = self.small_font.render(' '.join(line_words), True, color)
+                        self.screen.blit(surface, (sidebar_rect.left + 24, sidebar_rect.top + y))
+                        y += 24
+                        line_words = []
+                        current_w = 0
+                        
+                    char_line = ""
+                    for char in word:
+                        if self.small_font.size(char_line + char)[0] > max_width:
+                            surface = self.small_font.render(char_line, True, color)
+                            self.screen.blit(surface, (sidebar_rect.left + 24, sidebar_rect.top + y))
+                            y += 24
+                            char_line = char
+                        else:
+                            char_line += char
+                    if char_line:
+                        line_words = [char_line]
+                        current_w = self.small_font.size(char_line)[0] + space_w
+                elif current_w + word_w > max_width:
+                    if line_words:
+                        surface = self.small_font.render(' '.join(line_words), True, color)
+                        self.screen.blit(surface, (sidebar_rect.left + 24, sidebar_rect.top + y))
+                        y += 24
+                    line_words = [word]
+                    current_w = word_w + space_w
+                else:
+                    line_words.append(word)
+                    current_w += word_w + space_w
+            
+            if line_words:
+                surface = self.small_font.render(' '.join(line_words), True, color)
+                self.screen.blit(surface, (sidebar_rect.left + 24, sidebar_rect.top + y))
+                y += 24
+            return y
+        
         if is_mode_4:
             for trace in game.llm_controller.traces:
-                surface = self.small_font.render(trace, True, COLORS["agentic_purple"])
-                self.screen.blit(surface, (sidebar_rect.left + 24, sidebar_rect.top + y_offset))
-                y_offset += 24
+                y_offset = draw_wrapped_text(trace, COLORS["agentic_purple"], y_offset)
+                
+        elif is_mode_3:
+            neural = game.neural_controller
+            if neural.available:
+                status = "Status: ONLINE (mlp_model.pt loaded)"
+                features = f"Input Vector: [X={game.ball.x:.1f}, Y={game.ball.y:.1f}, dX={game.ball.dx:.1f}, dY={game.ball.dy:.1f}]"
+                target = f"Target Coordinate: {game.vhal.target_mm:.1f} mm"
+                
+                y_offset = draw_wrapped_text(status, COLORS["paddle"], y_offset)
+                y_offset += 12
+                y_offset = draw_wrapped_text(features, COLORS["text"], y_offset)
+                y_offset += 12
+                y_offset = draw_wrapped_text(target, COLORS["paddle_target"], y_offset)
+            else:
+                y_offset = draw_wrapped_text(f"Status: OFFLINE ({neural.load_error})", COLORS["danger"], y_offset)

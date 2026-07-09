@@ -26,8 +26,8 @@ from .state import ControlMode, PlayState
 class BreakoutGame:
     def __init__(self) -> None:
         pygame.init()
-        pygame.display.set_caption("Breakout V-HAL - Stage 3 Neural Controller")
-        self.screen = pygame.display.set_mode((SCREEN.width, SCREEN.height))
+        pygame.display.set_caption("Breakout - Stage 4 LLM Agent")
+        self.screen = pygame.display.set_mode((SCREEN.width, SCREEN.height), pygame.SCALED | pygame.RESIZABLE)
         self.clock = pygame.time.Clock()
         self.renderer = GameRenderer(self.screen)
 

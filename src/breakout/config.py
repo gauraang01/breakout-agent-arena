@@ -5,11 +5,11 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ScreenConfig:
-    width: int = 1680
-    height: int = 800
+    width: int = 1440
+    height: int = 900
     fps: int = 60
-    arena_width: int = 1280
-    sidebar_width: int = 400
+    arena_width: int = 990
+    sidebar_width: int = 450
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,7 @@ class BallConfig:
 @dataclass(frozen=True)
 class BrickConfig:
     rows: int = 6
-    columns: int = 10
+    columns: int = 8
     width: int = 96
     height: int = 26
     gap: int = 12
