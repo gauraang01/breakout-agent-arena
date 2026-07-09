@@ -32,8 +32,9 @@ motion constraints before adding autonomous or hardware-driven control.
 - The Stage 1 window is `1280 x 800`.
 - The paddle starts at the center of the 500 mm track.
 - The ball starts attached above the paddle until launched.
-- Losing the ball costs one life and resets the ball and paddle target.
+- The game uses one life; losing the ball ends the run.
 - Clearing all bricks shows a stage-clear state and allows restart.
+- The UI shows elapsed run time and freezes finish time when the run ends.
 
 ## Done Criteria
 

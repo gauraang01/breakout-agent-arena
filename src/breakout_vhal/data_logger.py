@@ -6,41 +6,38 @@ from typing import TextIO
 
 
 class TrainingDataLogger:
-    def __init__(self, path: Path, sample_interval_frames: int = 10) -> None:
+    def __init__(self, path: Path, sample_interval_frames: int = 4) -> None:
         self.path = path
         self.sample_interval_frames = sample_interval_frames
+        self.rows_written = 0
         self._file: TextIO | None = None
         self._writer: csv.writer | None = None
 
     def log(
         self,
         frame: int,
-        mode: str,
         ball_x: float,
         ball_y: float,
         ball_dx: float,
         ball_dy: float,
-        correct_paddle_x_px: float,
-        correct_paddle_mm: float,
-        actual_paddle_mm: float,
+        target_paddle_mm: float,
     ) -> None:
         if frame % self.sample_interval_frames != 0:
+            return
+        if ball_dy <= 0:
             return
 
         writer = self._ensure_writer()
         writer.writerow(
             [
-                frame,
-                mode,
                 f"{ball_x:.3f}",
                 f"{ball_y:.3f}",
                 f"{ball_dx:.3f}",
                 f"{ball_dy:.3f}",
-                f"{correct_paddle_x_px:.3f}",
-                f"{correct_paddle_mm:.3f}",
-                f"{actual_paddle_mm:.3f}",
+                f"{target_paddle_mm:.3f}",
             ]
         )
+        self.rows_written += 1
 
     def close(self) -> None:
         if self._file is None:
@@ -58,15 +55,11 @@ class TrainingDataLogger:
         self._writer = csv.writer(self._file)
         self._writer.writerow(
             [
-                "frame",
-                "mode",
                 "ball_x",
                 "ball_y",
                 "ball_dx",
                 "ball_dy",
-                "correct_paddle_x_px",
-                "correct_paddle_mm",
-                "actual_paddle_mm",
+                "target_paddle_mm",
             ]
         )
         return self._writer

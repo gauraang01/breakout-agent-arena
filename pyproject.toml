@@ -7,7 +7,11 @@ name = "breakout-vhal"
 version = "0.1.0"
 description = "Breakout sandbox constrained by a virtual hardware abstraction layer."
 requires-python = ">=3.10"
-dependencies = ["pygame>=2.6,<3"]
+dependencies = [
+    "pygame>=2.6,<3",
+    "numpy>=1.26,<3",
+    "torch>=2.2,<3",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

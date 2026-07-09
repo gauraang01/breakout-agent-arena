@@ -16,7 +16,11 @@ src/breakout_vhal/
   config.py        # dimensions, colors, gameplay constants, V-HAL constants
   data_logger.py   # CSV writer for supervised training samples
   game.py          # Pygame loop, rendering, input, collisions, game state
+  neural_agent.py  # PyTorch model loader and inference wrapper
   vhal.py          # virtual hardware motion model
+scripts/
+  collect_training_data.py # fast headless Stage 2 data collector
+  train_mlp_model.py       # offline MLP training/export script
 ```
 
 ## Runtime Flow
@@ -31,12 +35,20 @@ src/breakout_vhal/
    - Mathematical Agent mode:
      - The ball trajectory is projected to the paddle strike line.
      - The predicted impact X coordinate is converted to a 0-500 mm rail target.
+   - Neural Network mode:
+     - Upward ball motion sends the paddle to the center rest position.
+     - Downward ball motion is scaled and passed through the trained MLP.
+     - The predicted target is clamped to the 0-500 mm track.
 3. Each frame advances the V-HAL with `dt`.
 4. The game reads the V-HAL paddle position and maps it to the screen.
 5. Ball, brick, wall, paddle, scoring, and life collisions are resolved.
 6. The overlay renders telemetry from the game, controller, prediction, and
    V-HAL.
-7. When Mathematical Agent mode is active, a CSV row is written every 10 frames.
+7. When Mathematical Agent mode is active, a CSV row is written every 4 frames
+   only if the ball is falling.
+
+The run timer advances only while the ball is actively playing. It freezes into
+`final_time_s` when the game ends through stage clear or game over.
 
 ## Separation Rules
 
@@ -49,6 +61,8 @@ src/breakout_vhal/
   until a later hardware stage.
 - Data harvesting should log controller labels separately from actual V-HAL
   position so later models can learn the ideal target and compare actuator lag.
+- Neural runtime code may load a trained model, but model inference must still
+  produce only V-HAL target coordinates.
 
 ## Extension Points
 

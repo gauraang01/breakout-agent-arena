@@ -52,30 +52,30 @@ correct target chosen by the Mathematical Agent.
 ## Data Harvesting
 
 While the game is in Mathematical Agent mode and the ball is actively playing, a
-sample is written every 10 frames to:
+sample is written every 4 frames to:
 
 ```text
 training_data.csv
 ```
 
+Samples are written only when `ball_dy > 0`, so the dataset focuses on downward
+trajectories toward the paddle and avoids noisy upward brick-collision states.
+
 CSV columns:
 
-- `frame`
-- `mode`
 - `ball_x`
 - `ball_y`
 - `ball_dx`
 - `ball_dy`
-- `correct_paddle_x_px`
-- `correct_paddle_mm`
-- `actual_paddle_mm`
+- `target_paddle_mm`
 
-`correct_paddle_x_px` and `correct_paddle_mm` represent the agent's desired
-paddle-center target. For normal catches this lines up with the predicted impact
-X. For anti-vertical-loop catches it is slightly offset from the impact point.
+`target_paddle_mm` represents the agent's desired paddle-center target. For
+normal catches this lines up with the predicted impact X. For
+anti-vertical-loop catches it is slightly offset from the impact point.
 
-The file is overwritten on each game run. This keeps a run's dataset internally
-consistent and avoids accidentally mixing data from different physics settings.
+The file is overwritten on each game run or data-collection run. This keeps a
+run's dataset internally consistent and avoids accidentally mixing data from
+different physics settings.
 
 ## Known Limitations
 

@@ -40,11 +40,17 @@ class BrickConfig:
     top: int = 92
 
 
+@dataclass(frozen=True)
+class GameplayConfig:
+    lives: int = 1
+
+
 SCREEN = ScreenConfig()
 VHAL = VHALConfig()
 PADDLE = PaddleConfig()
 BALL = BallConfig()
 BRICKS = BrickConfig()
+GAMEPLAY = GameplayConfig()
 
 
 COLORS = {

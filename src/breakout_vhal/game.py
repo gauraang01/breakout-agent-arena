@@ -9,8 +9,9 @@ from pathlib import Path
 import pygame
 
 from .agent import MathematicalAgent, Prediction
-from .config import BALL, BRICK_COLORS, BRICKS, COLORS, PADDLE, SCREEN, VHAL
+from .config import BALL, BRICK_COLORS, BRICKS, COLORS, GAMEPLAY, PADDLE, SCREEN, VHAL
 from .data_logger import TrainingDataLogger
+from .neural_agent import NeuralNetworkAgent, NeuralPrediction
 from .vhal import VirtualPaddleHAL
 
 
@@ -25,6 +26,7 @@ class PlayState(Enum):
 class ControlMode(Enum):
     MANUAL = "manual"
     MATHEMATICAL_AGENT = "mathematical_agent"
+    NEURAL_NETWORK = "neural_network"
 
 
 @dataclass
@@ -74,13 +76,17 @@ class BreakoutGame:
         self.ball = self._new_attached_ball()
         self.bricks = self._create_bricks()
         self.agent = MathematicalAgent()
+        self.neural_agent = NeuralNetworkAgent()
         self.prediction: Prediction | None = None
+        self.neural_prediction: NeuralPrediction | None = None
         self.control_mode = ControlMode.MANUAL
         self.frame = 0
         self.training_logger = TrainingDataLogger(Path("training_data.csv"))
         self.state = PlayState.READY
         self.score = 0
-        self.lives = 3
+        self.lives = GAMEPLAY.lives
+        self.elapsed_time_s = 0.0
+        self.final_time_s: float | None = None
         self.running = True
 
     def run(self) -> None:
@@ -108,8 +114,13 @@ class BreakoutGame:
                 elif event.key == pygame.K_1:
                     self.control_mode = ControlMode.MANUAL
                     self.prediction = None
+                    self.neural_prediction = None
                 elif event.key == pygame.K_2:
                     self.control_mode = ControlMode.MATHEMATICAL_AGENT
+                    self.neural_prediction = None
+                elif event.key == pygame.K_3:
+                    self.control_mode = ControlMode.NEURAL_NETWORK
+                    self.prediction = None
 
     def _handle_space(self) -> None:
         if self.state in {PlayState.READY, PlayState.LOST_BALL}:
@@ -122,6 +133,9 @@ class BreakoutGame:
         if self.control_mode == ControlMode.MATHEMATICAL_AGENT:
             self._handle_agent_input()
             return
+        if self.control_mode == ControlMode.NEURAL_NETWORK:
+            self._handle_neural_input()
+            return
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT] and not keys[pygame.K_RIGHT]:
@@ -132,6 +146,7 @@ class BreakoutGame:
             self.vhal.hold_position()
 
     def _handle_agent_input(self) -> None:
+        self.neural_prediction = None
         self.prediction = self.agent.predict(
             ball_x=self.ball.x,
             ball_y=self.ball.y,
@@ -146,6 +161,16 @@ class BreakoutGame:
         )
         self.vhal.set_target_mm(self.prediction.target_mm)
 
+    def _handle_neural_input(self) -> None:
+        self.prediction = None
+        self.neural_prediction = self.neural_agent.predict_target_mm(
+            ball_x=self.ball.x,
+            ball_y=self.ball.y,
+            ball_dx=self.ball.dx,
+            ball_dy=self.ball.dy,
+        )
+        self.vhal.set_target_mm(self.neural_prediction.target_mm)
+
     def _update(self, dt_s: float) -> None:
         self.vhal.update(dt_s)
         if self.state in {PlayState.READY, PlayState.LOST_BALL}:
@@ -154,6 +179,8 @@ class BreakoutGame:
 
         if self.state != PlayState.PLAYING:
             return
+
+        self.elapsed_time_s += dt_s
 
         self.ball.x += self.ball.dx * dt_s
         self.ball.y += self.ball.dy * dt_s
@@ -165,6 +192,7 @@ class BreakoutGame:
             self._lose_ball()
         elif all(not brick.alive for brick in self.bricks):
             self.state = PlayState.CLEARED
+            self._finish_run()
 
         self._log_training_sample()
 
@@ -218,6 +246,7 @@ class BreakoutGame:
         self.lives -= 1
         if self.lives <= 0:
             self.state = PlayState.GAME_OVER
+            self._finish_run()
         else:
             self.state = PlayState.LOST_BALL
         self.vhal.hold_position()
@@ -225,7 +254,9 @@ class BreakoutGame:
 
     def _restart_game(self) -> None:
         self.score = 0
-        self.lives = 3
+        self.lives = GAMEPLAY.lives
+        self.elapsed_time_s = 0.0
+        self.final_time_s = None
         self.bricks = self._create_bricks()
         self.vhal = VirtualPaddleHAL.centered(
             track_length_mm=VHAL.track_length_mm,
@@ -235,6 +266,11 @@ class BreakoutGame:
         self.ball = self._new_attached_ball()
         self.state = PlayState.READY
         self.prediction = None
+        self.neural_prediction = None
+
+    def _finish_run(self) -> None:
+        if self.final_time_s is None:
+            self.final_time_s = self.elapsed_time_s
 
     def _launch_ball(self) -> None:
         angle = math.radians(random.choice([58, 64, 116, 122]))
@@ -285,14 +321,11 @@ class BreakoutGame:
 
         self.training_logger.log(
             frame=self.frame,
-            mode=self.control_mode.value,
             ball_x=self.ball.x,
             ball_y=self.ball.y,
             ball_dx=self.ball.dx,
             ball_dy=self.ball.dy,
-            correct_paddle_x_px=self.prediction.target_x_px,
-            correct_paddle_mm=self.prediction.target_mm,
-            actual_paddle_mm=self.vhal.position_mm,
+            target_paddle_mm=self.prediction.target_mm,
         )
 
     def _create_bricks(self) -> list[Brick]:
@@ -350,7 +383,7 @@ class BreakoutGame:
         pygame.draw.rect(self.screen, (197, 244, 255), paddle_rect, width=2, border_radius=4)
 
     def _draw_overlay(self) -> None:
-        overlay_rect = pygame.Rect(48, SCREEN.height - 190, 430, 142)
+        overlay_rect = pygame.Rect(48, SCREEN.height - 236, 520, 188)
         pygame.draw.rect(self.screen, COLORS["overlay"], overlay_rect, border_radius=4)
         pygame.draw.rect(self.screen, COLORS["field_border"], overlay_rect, width=1, border_radius=4)
 
@@ -358,14 +391,17 @@ class BreakoutGame:
         predicted_x = self.prediction.impact_x_px if self.prediction else self.ball.x
         target_x = self.prediction.target_x_px if self.prediction else self._target_x()
         angled = "yes" if self.prediction and self.prediction.angled_hit else "no"
+        neural_status = "loaded" if self.neural_agent.available else self.neural_agent.load_error
         lines = [
-            f"Mode: {self.control_mode.value}  (1 manual, 2 agent)",
+            f"Mode: {self.control_mode.value}  (1 manual, 2 math, 3 neural)",
+            f"Time: {_format_time(self.elapsed_time_s)} | Finish: {_format_optional_time(self.final_time_s)}",
             f"Ball X,Y: {self.ball.x:7.1f}, {self.ball.y:7.1f}",
             f"Ball dX,dY: {self.ball.dx:7.1f}, {self.ball.dy:7.1f} px/s",
             f"Paddle: {paddle_rect.centerx:6.1f}px | {self.vhal.position_mm:6.1f}mm",
             f"Target: {self.vhal.target_mm:6.1f}mm | V: {self.vhal.velocity_mm_s:7.1f}mm/s",
             f"Impact X: {predicted_x:7.1f}px | Target X: {target_x:7.1f}px",
             f"Forced angled hit: {angled}",
+            f"Neural model: {neural_status}",
             f"Vmax: {self.vhal.max_velocity_mm_s:.0f}mm/s | Amax: {self.vhal.max_acceleration_mm_s2:.0f}mm/s2",
         ]
         for index, line in enumerate(lines):
@@ -374,7 +410,8 @@ class BreakoutGame:
             self.screen.blit(surface, (overlay_rect.left + 14, overlay_rect.top + 10 + index * 18))
 
         status = (
-            f"Score {self.score}   Lives {self.lives}   State {self.state.value}   "
+            f"Score {self.score}   Lives {self.lives}   Time {_format_time(self.elapsed_time_s)}   "
+            f"Finish {_format_optional_time(self.final_time_s)}   State {self.state.value}   "
             f"Mode {self.control_mode.value}"
         )
         surface = self.font.render(status, True, COLORS["text"])
@@ -396,6 +433,18 @@ class BreakoutGame:
         rect = surface.get_rect(center=(self.field_rect.centerx, self.field_rect.centery + 60))
         self.screen.blit(shadow, rect.move(2, 2))
         self.screen.blit(surface, rect)
+
+
+def _format_time(seconds: float) -> str:
+    minutes = int(seconds // 60)
+    remaining_seconds = seconds - minutes * 60
+    return f"{minutes:02d}:{remaining_seconds:05.2f}"
+
+
+def _format_optional_time(seconds: float | None) -> str:
+    if seconds is None:
+        return "--:--.--"
+    return _format_time(seconds)
 
 
 def main() -> None:

@@ -13,11 +13,20 @@ Controls:
 
 - `1`: manual mode
 - `2`: mathematical agent mode
+- `3`: neural network mode
 - Space: launch/restart
 - Escape: quit
 
-When the mathematical agent is active, samples are written every 10 frames to
-`training_data.csv`.
+Stage 3 workflow:
+
+```bash
+python3 scripts/collect_training_data.py --rows 20000
+python3 scripts/train_mlp_model.py
+python3 run_stage1.py
+```
+
+When the mathematical agent is active, downward-ball samples are written every 4
+frames to `training_data.csv`.
 
 Or install the package in editable mode:
 
