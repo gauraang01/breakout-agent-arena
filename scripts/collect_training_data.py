@@ -57,18 +57,23 @@ def main() -> None:
             game.force_predict_trajectory()
             game._update(args.dt)
 
-            if game.state in {PlayState.LOST_BALL, PlayState.READY}:
+            if game.state in {PlayState.LOST_BALL, PlayState.READY, PlayState.CLEARED, PlayState.GAME_OVER} or game.frame % 300 == 0:
                 import random
-                for brick in game.bricks:
-                    brick.alive = random.random() > 0.5
-                game._launch_ball()
-                game.state = PlayState.PLAYING
-            elif game.state in {PlayState.CLEARED, PlayState.GAME_OVER}:
-                game._restart_game()
-                import random
-                for brick in game.bricks:
-                    brick.alive = random.random() > 0.5
-                game.harvest_training_data = True
+                from breakout.gameplay.entities import create_bricks
+                
+                pattern = random.choice(["solid", "checkerboard", "diamond", "circle", "hollow"])
+                game.bricks = create_bricks(game.field_rect, pattern)
+                
+                # Randomly destroy some bricks to simulate mid-game states
+                if random.random() > 0.3:
+                    for brick in game.bricks:
+                        if random.random() > 0.5:
+                            brick.alive = False
+                            
+                if game.state in {PlayState.CLEARED, PlayState.GAME_OVER}:
+                    game._restart_game()
+                    game.harvest_training_data = True
+                    
                 game._launch_ball()
                 game.state = PlayState.PLAYING
 

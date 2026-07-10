@@ -65,25 +65,27 @@ def main() -> None:
     if len(rows) < 1000:
         raise SystemExit(f"Need at least 1000 rows; found {len(rows)} in {args.input}")
 
-    torch.manual_seed(42)
-    data = torch.tensor(rows, dtype=torch.float32)
-    x = data[:, :52]
-    y = data[:, 52:53]
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Training on device: {device}")
 
+    torch.manual_seed(42)
+    data = torch.tensor(rows, dtype=torch.float32, device=device)
+    x = data[:, :52]
+    y_mm = data[:, 52:53] # raw target_mm (which is now offset)
+    
     permutation = torch.randperm(len(data))
     split = int(len(data) * 0.8)
     train_idx = permutation[:split]
     test_idx = permutation[split:]
 
     x_train = x[train_idx]
-    y_train = y[train_idx]
+    y_train = y_mm[train_idx]
     x_test = x[test_idx]
-    y_test = y[test_idx]
+    y_test_mm = y_mm[test_idx]
 
-    mean = x_train.mean(dim=0)
-    std = x_train.std(dim=0).clamp_min(1e-6)
-    x_train_scaled = (x_train - mean) / std
-    x_test_scaled = (x_test - mean) / std
+    # No statistical scaling needed, the CNN handles raw pixel coords!
+    x_train_scaled = x_train
+    x_test_scaled = x_test
 
     train_loader = DataLoader(
         TensorDataset(x_train_scaled, y_train),
@@ -91,7 +93,7 @@ def main() -> None:
         shuffle=True,
     )
 
-    model = build_paddle_mlp()
+    model = build_paddle_mlp().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.MSELoss()
 
@@ -107,22 +109,23 @@ def main() -> None:
             total_loss += float(loss.item()) * len(batch_x)
 
         if epoch == 1 or epoch % 25 == 0 or epoch == args.epochs:
-            print(f"epoch={epoch} train_mse={total_loss / len(x_train):.4f}")
+            print(f"epoch={epoch} train_loss={total_loss / len(x_train):.4f}")
 
     model.eval()
     with torch.no_grad():
         predictions = model(x_test_scaled)
-        mae = torch.mean(torch.abs(predictions - y_test)).item()
-        residual = torch.sum((y_test - predictions) ** 2)
-        total = torch.sum((y_test - torch.mean(y_test)) ** 2).clamp_min(1e-6)
+        mae = torch.mean(torch.abs(predictions - y_test_mm)).item()
+        
+        residual = torch.sum((y_test_mm - predictions) ** 2)
+        total = torch.sum((y_test_mm - torch.mean(y_test_mm)) ** 2).clamp_min(1e-6)
         r2 = (1.0 - residual / total).item()
 
     torch.save({"model_state_dict": model.state_dict()}, args.model_output)
     args.scaler_output.write_text(
         json.dumps(
             {
-                "mean": [float(value) for value in mean.tolist()],
-                "std": [float(value) for value in std.tolist()],
+                "mean": [0.0] * 52,
+                "std": [1.0] * 52,
             },
             indent=2,
         ),

@@ -163,12 +163,15 @@ class BreakoutGame:
 
     def _handle_neural_controller_input(self) -> None:
         if self.neural_controller.available:
+            self.force_predict_trajectory()
+            base_target = self.prediction.target_mm if self.prediction else 250.0
             self.neural_prediction = self.neural_controller.predict_target_mm(
                 ball_x=self.ball.x,
                 ball_y=self.ball.y,
                 ball_dx=self.ball.dx,
                 ball_dy=self.ball.dy,
                 brick_states=[b.alive for b in self.bricks],
+                base_target=base_target
             )
             self.vhal.set_target_mm(self.neural_prediction.target_mm)
 
@@ -300,22 +303,27 @@ class BreakoutGame:
         self.ball.dy = 0.0
 
     def _log_training_sample(self) -> None:
-        if (
-            not self.harvest_training_data
-            or self.state != PlayState.PLAYING
-            or self.prediction is None
-        ):
-            return
+        if self.harvest_training_data:
+            if self.prediction is not None:
+                # Calculate strategic aiming offset for the training dataset
+                alive_bricks = [b for b in self.bricks if b.alive]
+                desired_offset = 0.0
+                if alive_bricks:
+                    lowest_bottom = max(b.rect.bottom for b in alive_bricks)
+                    lowest_bricks = [b for b in alive_bricks if b.rect.bottom == lowest_bottom]
+                    avg_x = sum(b.rect.centerx for b in lowest_bricks) / len(lowest_bricks)
+                    desired_offset = (avg_x - self.prediction.target_mm) * 0.2
+                    desired_offset = max(-50.0, min(50.0, desired_offset))
 
-        self.training_logger.log(
-            frame=self.frame,
-            ball_x=self.ball.x,
-            ball_y=self.ball.y,
-            ball_dx=self.ball.dx,
-            ball_dy=self.ball.dy,
-            brick_states=[b.alive for b in self.bricks],
-            target_paddle_mm=self.prediction.target_mm,
-        )
+                self.training_logger.log(
+                    frame=self.frame,
+                    ball_x=self.ball.x,
+                    ball_y=self.ball.y,
+                    ball_dx=self.ball.dx,
+                    ball_dy=self.ball.dy,
+                    brick_states=[b.alive for b in self.bricks],
+                    target_paddle_mm=desired_offset,
+                )
 
     def _calculate_brick_densities(self) -> tuple[float, float, float]:
         if not self.bricks:

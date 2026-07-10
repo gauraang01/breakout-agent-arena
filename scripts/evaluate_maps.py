@@ -40,6 +40,7 @@ def evaluate_pattern(pattern: str, steps: int = 3000):
             ball_dx=game.ball.dx,
             ball_dy=game.ball.dy,
             brick_states=[b.alive for b in game.bricks],
+            base_target=true_target
         )
         nn_target = neural_pred.target_mm
         
