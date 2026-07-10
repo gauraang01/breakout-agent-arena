@@ -39,7 +39,10 @@ class BreakoutGame:
 
         self.vhal = self._new_vhal()
         self.ball = self._new_attached_ball()
-        self.bricks: list[Brick] = create_bricks(self.field_rect)
+        
+        self.pattern_idx = 0
+        self.patterns = ["solid", "checkerboard", "diamond", "circle", "hollow"]
+        self.bricks: list[Brick] = create_bricks(self.field_rect, self.patterns[self.pattern_idx])
 
         self.manual_controller = ManualController()
         self.trajectory_predictor = TrajectoryPredictor()
@@ -104,6 +107,12 @@ class BreakoutGame:
             self.running = False
         elif key == pygame.K_SPACE:
             self._handle_space()
+        elif key == pygame.K_LEFT and self.state in {PlayState.READY, PlayState.LOST_BALL}:
+            self.pattern_idx = (self.pattern_idx - 1) % len(self.patterns)
+            self.bricks = create_bricks(self.field_rect, self.patterns[self.pattern_idx])
+        elif key == pygame.K_RIGHT and self.state in {PlayState.READY, PlayState.LOST_BALL}:
+            self.pattern_idx = (self.pattern_idx + 1) % len(self.patterns)
+            self.bricks = create_bricks(self.field_rect, self.patterns[self.pattern_idx])
         elif key == pygame.K_1:
             self.control_mode = ControlMode.MANUAL
             self.prediction = None
@@ -153,22 +162,23 @@ class BreakoutGame:
         self.vhal.set_target_mm(self.prediction.target_mm)
 
     def _handle_neural_controller_input(self) -> None:
-        self.prediction = None
-        self.neural_prediction = self.neural_controller.predict_target_mm(
-            ball_x=self.ball.x,
-            ball_y=self.ball.y,
-            ball_dx=self.ball.dx,
-            ball_dy=self.ball.dy,
-        )
-        self.vhal.set_target_mm(self.neural_prediction.target_mm)
+        if self.neural_controller.available:
+            self.neural_prediction = self.neural_controller.predict_target_mm(
+                ball_x=self.ball.x,
+                ball_y=self.ball.y,
+                ball_dx=self.ball.dx,
+                ball_dy=self.ball.dy,
+                brick_states=[b.alive for b in self.bricks],
+            )
+            self.vhal.set_target_mm(self.neural_prediction.target_mm)
 
     def _handle_llm_agent_input(self) -> None:
-        if self.ball.dy < 0:
-            self.llm_acted_this_fall = False
+        if self.ball.dy > 0:
+            self.llm_acted_this_flight = False
             return
             
-        if self.ball.dy > 0 and self.ball.y > 400 and not self.llm_acted_this_fall:
-            self.llm_acted_this_fall = True
+        if self.ball.dy < 0 and not getattr(self, 'llm_acted_this_flight', False):
+            self.llm_acted_this_flight = True
             
             def log_trace(msg: str):
                 self.llm_controller.traces.append(msg)
@@ -233,7 +243,7 @@ class BreakoutGame:
         self.lives = GAMEPLAY.lives
         self.elapsed_time_s = 0.0
         self.final_time_s = None
-        self.bricks = create_bricks(self.field_rect)
+        self.bricks = create_bricks(self.field_rect, self.patterns[self.pattern_idx])
         self.vhal = self._new_vhal()
         self.ball = self._new_attached_ball()
         self.state = PlayState.READY
@@ -286,8 +296,34 @@ class BreakoutGame:
             ball_y=self.ball.y,
             ball_dx=self.ball.dx,
             ball_dy=self.ball.dy,
+            brick_states=[b.alive for b in self.bricks],
             target_paddle_mm=self.prediction.target_mm,
         )
+
+    def _calculate_brick_densities(self) -> tuple[float, float, float]:
+        if not self.bricks:
+            return 0.0, 0.0, 0.0
+            
+        third = self.field_rect.width / 3.0
+        left_count = center_count = right_count = 0
+        left_total = center_total = right_total = 0
+        
+        for brick in self.bricks:
+            if brick.rect.centerx < self.field_rect.left + third:
+                left_total += 1
+                if brick.alive: left_count += 1
+            elif brick.rect.centerx < self.field_rect.left + 2 * third:
+                center_total += 1
+                if brick.alive: center_count += 1
+            else:
+                right_total += 1
+                if brick.alive: right_count += 1
+                
+        l_dens = left_count / left_total if left_total else 0.0
+        c_dens = center_count / center_total if center_total else 0.0
+        r_dens = right_count / right_total if right_total else 0.0
+        
+        return l_dens, c_dens, r_dens
 
 
 def main() -> None:

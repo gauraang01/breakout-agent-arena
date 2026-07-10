@@ -1,13 +1,13 @@
 from __future__ import annotations
-
+import torch.nn as nn
 
 def build_paddle_mlp():
-    import torch.nn as nn
-
     return nn.Sequential(
-        nn.Linear(4, 64),
+        nn.Linear(52, 256),
         nn.ReLU(),
-        nn.Linear(64, 64),
+        nn.Linear(256, 256),
         nn.ReLU(),
-        nn.Linear(64, 1),
+        nn.Linear(256, 256),
+        nn.ReLU(),
+        nn.Linear(256, 1),
     )

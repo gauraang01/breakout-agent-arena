@@ -20,23 +20,23 @@ class TrainingDataLogger:
         ball_y: float,
         ball_dx: float,
         ball_dy: float,
+        brick_states: list[bool],
         target_paddle_mm: float,
     ) -> None:
         if frame % self.sample_interval_frames != 0:
             return
-        if ball_dy <= 0:
-            return
 
         writer = self._ensure_writer()
-        writer.writerow(
-            [
-                f"{ball_x:.3f}",
-                f"{ball_y:.3f}",
-                f"{ball_dx:.3f}",
-                f"{ball_dy:.3f}",
-                f"{target_paddle_mm:.3f}",
-            ]
-        )
+        row = [
+            f"{ball_x:.3f}",
+            f"{ball_y:.3f}",
+            f"{ball_dx:.3f}",
+            f"{ball_dy:.3f}",
+        ]
+        row.extend([str(int(b)) for b in brick_states])
+        row.append(f"{target_paddle_mm:.3f}")
+        
+        writer.writerow(row)
         self.rows_written += 1
 
     def close(self) -> None:
@@ -53,13 +53,10 @@ class TrainingDataLogger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._file = self.path.open("w", newline="", encoding="utf-8")
         self._writer = csv.writer(self._file)
-        self._writer.writerow(
-            [
-                "ball_x",
-                "ball_y",
-                "ball_dx",
-                "ball_dy",
-                "target_paddle_mm",
-            ]
-        )
+        
+        headers = ["ball_x", "ball_y", "ball_dx", "ball_dy"]
+        headers += [f"b{i}" for i in range(48)]
+        headers.append("target_paddle_mm")
+        
+        self._writer.writerow(headers)
         return self._writer

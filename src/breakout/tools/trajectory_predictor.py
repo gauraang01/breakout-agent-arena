@@ -40,6 +40,7 @@ class TrajectoryPredictor:
             ball_dy=ball_dy,
             strike_y=strike_y,
             field_rect=field_rect,
+            brick_rects=brick_rects,
         )
         target_x = impact_x
         angled_hit = should_force_angled_hit(
@@ -80,33 +81,66 @@ def predict_reflected_x(
     ball_dy: float,
     strike_y: float,
     field_rect: pygame.Rect,
+    brick_rects: Sequence[pygame.Rect],
 ) -> float:
-    if math.isclose(ball_dx, 0.0, abs_tol=0.0001):
-        return _clamp(ball_x, field_rect.left + BALL.radius, field_rect.right - BALL.radius)
+    x = ball_x
+    y = ball_y
+    dx = ball_dx
+    dy = ball_dy
+    sim_bricks = list(brick_rects)
+    
+    speed = math.hypot(dx, dy)
+    if speed < 1.0:
+        return x
+        
+    step_s = BALL.radius / speed
+    max_steps = 5000
+    
+    for _ in range(max_steps):
+        if dy > 0 and y >= strike_y:
+            return x
 
-    if math.isclose(ball_dy, 0.0, abs_tol=0.0001):
-        return _clamp(ball_x, field_rect.left + BALL.radius, field_rect.right - BALL.radius)
+        x += dx * step_s
+        y += dy * step_s
 
-    effective_y = ball_y
-    effective_dy = ball_dy
-    if effective_dy < 0:
-        distance_to_top = max(0.0, effective_y - (field_rect.top + BALL.radius))
-        time_to_top = distance_to_top / abs(effective_dy)
-        ball_x = _fold_reflected_x(
-            ball_x + ball_dx * time_to_top,
-            field_rect.left + BALL.radius,
-            field_rect.right - BALL.radius,
+        if x - BALL.radius <= field_rect.left:
+            x = field_rect.left + BALL.radius
+            dx = abs(dx)
+        elif x + BALL.radius >= field_rect.right:
+            x = field_rect.right - BALL.radius
+            dx = -abs(dx)
+
+        if y - BALL.radius <= field_rect.top:
+            y = field_rect.top + BALL.radius
+            dy = abs(dy)
+
+        ball_rect = pygame.Rect(
+            int(x - BALL.radius),
+            int(y - BALL.radius),
+            int(BALL.radius * 2),
+            int(BALL.radius * 2),
         )
-        effective_y = field_rect.top + BALL.radius
-        effective_dy = abs(effective_dy)
+        
+        hit_idx = -1
+        for i, b_rect in enumerate(sim_bricks):
+            if ball_rect.colliderect(b_rect):
+                hit_idx = i
+                break
+                
+        if hit_idx != -1:
+            hit_rect = sim_bricks.pop(hit_idx)
+            overlap_left = ball_rect.right - hit_rect.left
+            overlap_right = hit_rect.right - ball_rect.left
+            overlap_top = ball_rect.bottom - hit_rect.top
+            overlap_bottom = hit_rect.bottom - ball_rect.top
+            min_overlap = min(overlap_left, overlap_right, overlap_top, overlap_bottom)
 
-    time_to_strike = max(0.0, (strike_y - effective_y) / effective_dy)
-    raw_x = ball_x + ball_dx * time_to_strike
-    return _fold_reflected_x(
-        raw_x,
-        field_rect.left + BALL.radius,
-        field_rect.right - BALL.radius,
-    )
+            if min_overlap in (overlap_left, overlap_right):
+                dx *= -1
+            else:
+                dy *= -1
+
+    return x
 
 
 def pixel_center_x_to_track_mm(

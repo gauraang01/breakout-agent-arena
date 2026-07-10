@@ -44,34 +44,34 @@ class NeuralNetworkController:
         ball_y: float,
         ball_dx: float,
         ball_dy: float,
+        brick_states: list[bool],
     ) -> NeuralPrediction:
-        if ball_dy < 0:
-            return NeuralPrediction(
-                target_mm=VHAL.track_length_mm / 2.0,
-                available=self.available,
-                reason="ball_up_center_rest",
-            )
-
         if not self.available:
             return NeuralPrediction(
                 target_mm=VHAL.track_length_mm / 2.0,
-                available=False,
-                reason=self.load_error or "model_not_loaded",
+                available=self.available,
+                reason=self.load_error or "not_available",
             )
 
-        features = [ball_x, ball_y, ball_dx, ball_dy]
-        scaled = [
-            (value - mean) / std
-            for value, mean, std in zip(features, self.feature_mean, self.feature_std)
-        ]
-        with self.torch.no_grad():
-            tensor = self.torch.tensor([scaled], dtype=self.torch.float32)
-            target = float(self.model(tensor).item())
-        return NeuralPrediction(
-            target_mm=max(0.0, min(VHAL.track_length_mm, target)),
-            available=True,
-        )
-
+        try:
+            features = [ball_x, ball_y, ball_dx, ball_dy] + [float(b) for b in brick_states]
+            scaled = [
+                (value - mean) / std
+                for value, mean, std in zip(features, self.feature_mean, self.feature_std)
+            ]
+            with self.torch.no_grad():
+                tensor = self.torch.tensor([scaled], dtype=self.torch.float32)
+                target = float(self.model(tensor).item())
+            return NeuralPrediction(
+                target_mm=max(0.0, min(VHAL.track_length_mm, target)),
+                available=True,
+            )
+        except Exception as exc:
+            return NeuralPrediction(
+                target_mm=VHAL.track_length_mm / 2.0,
+                available=False,
+                reason=str(exc)
+            )
     def _load(self) -> None:
         if not self.model_path.exists() or not self.scaler_path.exists():
             self.load_error = "missing mlp_model.pt or scaler.json"

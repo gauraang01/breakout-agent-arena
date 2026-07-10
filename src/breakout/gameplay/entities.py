@@ -31,17 +31,32 @@ class BallState:
         )
 
 
-def create_bricks(field_rect: pygame.Rect) -> list[Brick]:
+def create_bricks(field_rect: pygame.Rect, pattern_type: str = "solid") -> list[Brick]:
     total_width = BRICKS.columns * BRICKS.width + (BRICKS.columns - 1) * BRICKS.gap
     left = field_rect.centerx - total_width // 2
     bricks: list[Brick] = []
     for row in range(BRICKS.rows):
         for column in range(BRICKS.columns):
+            keep = True
+            if pattern_type == "checkerboard":
+                keep = (row + column) % 2 == 0
+            elif pattern_type == "diamond":
+                dist = abs(row - 2.5) + abs(column - 3.5)
+                keep = dist <= 3.5
+            elif pattern_type == "circle":
+                dist_sq = (row - 2.5)**2 + (column - 3.5)**2
+                keep = dist_sq <= 8
+            elif pattern_type == "hollow":
+                keep = row == 0 or row == BRICKS.rows - 1 or column == 0 or column == BRICKS.columns - 1
+                
             rect = pygame.Rect(
                 left + column * (BRICKS.width + BRICKS.gap),
                 BRICKS.top + row * (BRICKS.height + BRICKS.gap),
                 BRICKS.width,
                 BRICKS.height,
             )
-            bricks.append(Brick(rect=rect, color=BRICK_COLORS[row % len(BRICK_COLORS)]))
+            brick = Brick(rect=rect, color=BRICK_COLORS[row % len(BRICK_COLORS)])
+            if not keep:
+                brick.alive = False
+            bricks.append(brick)
     return bricks

@@ -116,6 +116,14 @@ class GameRenderer:
         rect = surface.get_rect(center=(game.field_rect.centerx, game.field_rect.centery + 60))
         self.screen.blit(shadow, rect.move(2, 2))
         self.screen.blit(surface, rect)
+        
+        if game.state in {PlayState.READY, PlayState.LOST_BALL}:
+            map_msg = f"Map: {game.patterns[game.pattern_idx].upper()} (Use LEFT/RIGHT)"
+            map_surface = self.medium_font.render(map_msg, True, COLORS["paddle"])
+            map_shadow = self.medium_font.render(map_msg, True, (0, 0, 0))
+            map_rect = map_surface.get_rect(center=(game.field_rect.centerx, game.field_rect.centery + 100))
+            self.screen.blit(map_shadow, map_rect.move(2, 2))
+            self.screen.blit(map_surface, map_rect)
 
     def _draw_sidebar(self, game) -> None:
         sidebar_rect = game.sidebar_rect
@@ -198,7 +206,9 @@ class GameRenderer:
             neural = game.neural_controller
             if neural.available:
                 status = "Status: ONLINE (mlp_model.pt loaded)"
-                features = f"Input Vector: [X={game.ball.x:.1f}, Y={game.ball.y:.1f}, dX={game.ball.dx:.1f}, dY={game.ball.dy:.1f}]"
+                
+                left_d, center_d, right_d = game._calculate_brick_densities()
+                features = f"Input Vector: [X={game.ball.x:.0f}, Y={game.ball.y:.0f}, dX={game.ball.dx:.0f}, dY={game.ball.dy:.0f}, L={left_d:.1f}, C={center_d:.1f}, R={right_d:.1f}]"
                 target = f"Target Coordinate: {game.vhal.target_mm:.1f} mm"
                 
                 y_offset = draw_wrapped_text(status, COLORS["paddle"], y_offset)

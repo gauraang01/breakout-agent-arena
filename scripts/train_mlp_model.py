@@ -67,8 +67,8 @@ def main() -> None:
 
     torch.manual_seed(42)
     data = torch.tensor(rows, dtype=torch.float32)
-    x = data[:, :4]
-    y = data[:, 4:5]
+    x = data[:, :52]
+    y = data[:, 52:53]
 
     permutation = torch.randperm(len(data))
     split = int(len(data) * 0.8)
@@ -143,20 +143,14 @@ def _read_rows(path: Path) -> list[list[float]]:
     rows: list[list[float]] = []
     with path.open(newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
-        required = ["ball_x", "ball_y", "ball_dx", "ball_dy", "target_paddle_mm"]
+        feature_cols = ["ball_x", "ball_y", "ball_dx", "ball_dy"] + [f"b{i}" for i in range(48)]
+        required = feature_cols + ["target_paddle_mm"]
         if reader.fieldnames != required:
             raise SystemExit(f"Expected columns {required}; found {reader.fieldnames}")
 
         for row in reader:
-            rows.append(
-                [
-                    float(row["ball_x"]),
-                    float(row["ball_y"]),
-                    float(row["ball_dx"]),
-                    float(row["ball_dy"]),
-                    float(row["target_paddle_mm"]),
-                ]
-            )
+            data_row = [float(row[col]) for col in required]
+            rows.append(data_row)
     return rows
 
 

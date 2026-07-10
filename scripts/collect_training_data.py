@@ -58,10 +58,16 @@ def main() -> None:
             game._update(args.dt)
 
             if game.state in {PlayState.LOST_BALL, PlayState.READY}:
+                import random
+                for brick in game.bricks:
+                    brick.alive = random.random() > 0.5
                 game._launch_ball()
                 game.state = PlayState.PLAYING
             elif game.state in {PlayState.CLEARED, PlayState.GAME_OVER}:
                 game._restart_game()
+                import random
+                for brick in game.bricks:
+                    brick.alive = random.random() > 0.5
                 game.harvest_training_data = True
                 game._launch_ball()
                 game.state = PlayState.PLAYING
