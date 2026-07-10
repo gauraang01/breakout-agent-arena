@@ -180,28 +180,35 @@ class BreakoutGame:
         if self.ball.dy < 0 and not getattr(self, 'llm_acted_this_flight', False):
             self.llm_acted_this_flight = True
             
+            self.llm_is_calculating = True
+            
             def log_trace(msg: str):
                 self.llm_controller.traces.append(msg)
                 
-            def draw_update():
-                self.renderer.draw(self)
-                pygame.event.pump()
-                
-            target_mm = self.llm_controller.predict_target_mm(
-                ball_x=self.ball.x,
-                ball_y=self.ball.y,
-                ball_dx=self.ball.dx,
-                ball_dy=self.ball.dy,
-                strike_y=self.paddle_y - BALL.radius,
-                field_rect=self.field_rect,
-                paddle_min_center_x=self.paddle_min_center_x,
-                paddle_max_center_x=self.paddle_max_center_x,
-                track_length_mm=VHAL.track_length_mm,
-                brick_rects=[brick.rect for brick in self.bricks if brick.alive],
-                log_callback=log_trace,
-                draw_callback=draw_update
-            )
-            self.vhal.set_target_mm(target_mm)
+            def do_llm_prediction():
+                try:
+                    target_mm = self.llm_controller.predict_target_mm(
+                        ball_x=self.ball.x,
+                        ball_y=self.ball.y,
+                        ball_dx=self.ball.dx,
+                        ball_dy=self.ball.dy,
+                        strike_y=self.paddle_y - BALL.radius,
+                        field_rect=self.field_rect,
+                        paddle_min_center_x=self.paddle_min_center_x,
+                        paddle_max_center_x=self.paddle_max_center_x,
+                        track_length_mm=VHAL.track_length_mm,
+                        brick_rects=[brick.rect for brick in self.bricks if brick.alive],
+                        log_callback=log_trace,
+                        draw_callback=lambda: None
+                    )
+                    self.vhal.set_target_mm(target_mm)
+                except Exception as e:
+                    print(f"LLM Thread Error: {e}")
+                finally:
+                    self.llm_is_calculating = False
+
+            import threading
+            threading.Thread(target=do_llm_prediction, daemon=True).start()
 
     def _update(self, dt_s: float) -> None:
         self.vhal.update(dt_s)
@@ -213,12 +220,22 @@ class BreakoutGame:
             return
 
         self.elapsed_time_s += dt_s
+
+        if getattr(self, "waiting_for_llm", False):
+            if not getattr(self, "llm_is_calculating", False):
+                self.waiting_for_llm = False
+            else:
+                return
+
         self.ball.x += self.ball.dx * dt_s
         self.ball.y += self.ball.dy * dt_s
 
         resolve_wall_collisions(self.ball, self.field_rect)
         resolve_paddle_collision(self.ball, self.paddle_rect())
         self.score += resolve_brick_collision(self.ball, self.bricks)
+        
+        if self.ball.dy > 0 and self.ball.y > 400 and getattr(self, "llm_is_calculating", False):
+            self.waiting_for_llm = True
 
         if self.ball.y - BALL.radius > self.field_rect.bottom:
             self._lose_ball()

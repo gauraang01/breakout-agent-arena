@@ -29,7 +29,7 @@ class PaddleConfig:
 @dataclass(frozen=True)
 class BallConfig:
     radius: int = 10
-    speed_px_s: float = 470.0
+    speed_px_s: float = 300.0
 
 
 @dataclass(frozen=True)

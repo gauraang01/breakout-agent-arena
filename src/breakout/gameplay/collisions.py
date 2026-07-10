@@ -42,13 +42,15 @@ def resolve_brick_collision(ball: BallState, bricks: list[Brick]) -> int:
 
         brick.alive = False
 
-        overlap_left = ball_rect.right - brick.rect.left
-        overlap_right = brick.rect.right - ball_rect.left
-        overlap_top = ball_rect.bottom - brick.rect.top
-        overlap_bottom = brick.rect.bottom - ball_rect.top
-        min_overlap = min(overlap_left, overlap_right, overlap_top, overlap_bottom)
-
-        if min_overlap in (overlap_left, overlap_right):
+        # Determine collision face by normalizing the distance from the brick's center
+        dx = ball.x - brick.rect.centerx
+        dy = ball.y - brick.rect.centery
+        
+        # Normalize by the brick's dimensions
+        norm_x = abs(dx) / (brick.rect.width / 2)
+        norm_y = abs(dy) / (brick.rect.height / 2)
+        
+        if norm_x > norm_y:
             ball.dx *= -1
         else:
             ball.dy *= -1
