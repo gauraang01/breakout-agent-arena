@@ -1,6 +1,6 @@
 # The Neural Network Journey: Teaching AI to Play Breakout
 
-This document explains our journey to build a Neural Network capable of playing Breakout. It is written so that a novice can understand the exact steps we took, what inputs we fed the AI, why our early attempts failed, and how we ultimately solved the problem.
+This document explains our journey to build a Neural Network capable of playing Breakout. It is written so that one can understand the exact steps we took, what inputs we fed the AI, why our early attempts failed, and how we ultimately solved the problem.
 
 Our overarching goal was to build a model with high strategic intelligence that could calculate decisions in under a millisecond, allowing it to run smoothly inside a fast-paced 60 Frames-Per-Second (FPS) game loop.
 
@@ -18,6 +18,8 @@ Our overarching goal was to build a model with high strategic intelligence that 
 2. `ball_y` (The ball's vertical position)
 3. `ball_dx` (The ball's horizontal velocity)
 4. `ball_dy` (The ball's vertical velocity)
+
+**The Trigger Condition:** The MLP inference ran 60 times a second, recalculating the target every single frame. However, the model was trained exclusively on data where the ball was *falling* (`ball_dy > 0`). This meant that if the Neural Network was queried while the ball was rising, it would behave erratically because it was out-of-distribution.
 
 **The Output:** A single X-coordinate (e.g., `350.5 mm`) representing exactly where the paddle should move to catch the ball.
 
@@ -88,7 +90,7 @@ On a physical Arduino robot, this continuous micro-jitter causes stepper motors 
 We implemented a **Trajectory Lock**. Because our math raytracer is perfectly accurate, its predicted landing spot does not change while the ball is falling in open air—it only changes when the ball physically hits something. 
 
 We programmed the neural controller to use the math raytracer as a "Flight Path Check":
-- If the mathematical landing spot hasn't changed since the previous frame, the controller knows the ball is on the exact same flight path. It completely shuts off the CNN and **hard-freezes** the target line exactly where it was.
-- It only wakes the Neural Network back up to calculate a new strategic offset the instant the ball bounces off a wall or brick. 
+- **The Trigger Condition (The Lock):** If the mathematical landing spot hasn't changed since the previous frame, the controller knows the ball is on the exact same flight path. It completely shuts off the CNN and **hard-freezes** the target line exactly where it was.
+- It only wakes the Neural Network back up to trigger a new strategic offset calculation the instant the ball bounces off a wall or brick (because a physical bounce mathematically alters the base target). 
 
 **Why it Worked:** This completely eliminated motor jitter, guaranteeing that the Arduino executes a single, perfectly smooth, decisive sweep to catch the ball.

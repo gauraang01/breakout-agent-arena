@@ -14,6 +14,8 @@ Our goal was to see if we could use the high-level reasoning of an LLM as the pr
 - The ball's velocity (speed and direction).
 - The layout of the remaining bricks.
 
+**The Trigger Condition:** The LLM was queried continuously, meaning the API request fired every single frame.
+
 **The Output:** A single text number representing the target paddle coordinate.
 
 ### What Worked?
@@ -27,7 +29,9 @@ Our goal was to see if we could use the high-level reasoning of an LLM as the pr
 
 ## 2. Attempt #2: Asynchronous Threading (Fire and Forget)
 
-**The Goal:** We needed to unfreeze the game. We wrapped the LLM API call in an asynchronous Python background thread. The prompt would trigger the exact moment the ball reflected off the paddle, giving the LLM the maximum possible time (the entire upward and downward flight) to respond.
+**The Goal:** We needed to unfreeze the game. We wrapped the LLM API call in an asynchronous Python background thread. 
+
+**The Trigger Condition:** Instead of querying every frame, the prompt triggered exactly once per flight: the exact moment the ball reflected off the paddle (when `ball_dy` became negative). This gave the LLM the maximum possible time (the entire upward and downward flight) to respond.
 
 **The Features (Inputs) & Output:** Same as Attempt #1.
 
@@ -51,6 +55,8 @@ Our goal was to see if we could use the high-level reasoning of an LLM as the pr
 1. Call the raytracer to find where the ball is naturally going.
 2. Analyze the board to find high-value clusters of bricks.
 3. Call the offset tool to calculate how to snipe those bricks.
+
+**The Trigger Condition:** Triggered once when the ball leaves the paddle. If the ball reached the top bricks before the LLM responded, the game paused.
 
 ### What Worked?
 - **Incredible Accuracy:** The LLM stopped guessing physics and relied on the flawless math tools. The resulting paddle intercepts were physically perfect.
