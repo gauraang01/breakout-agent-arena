@@ -43,12 +43,21 @@ class NeuralNetworkController:
             return NeuralPrediction(target_mm=base_target, available=False, reason=self.load_error)
             
         try:
+            # Trajectory Lock: Arduino motors hate micro-jitters.
+            # Since base_target is mathematically perfect, it stays exactly identical for an entire flight path.
+            # If base_target hasn't changed, the ball hasn't bounced, so we just freeze the previous Neural Target!
+            if hasattr(self, 'last_base_target') and abs(self.last_base_target - base_target) < 0.1:
+                return NeuralPrediction(target_mm=self.locked_target, available=True)
+
             features = [ball_x, ball_y, ball_dx, ball_dy] + [1.0 if alive else 0.0 for alive in brick_states]
             with self.torch.no_grad():
                 tensor = self.torch.tensor([features], dtype=self.torch.float32)
                 strategic_offset = self.model(tensor).item()
                 
-            final_target = base_target + strategic_offset
+            final_target = max(0.0, min(VHAL.track_length_mm, base_target + strategic_offset))
+            
+            self.last_base_target = base_target
+            self.locked_target = final_target
             
             return NeuralPrediction(
                 target_mm=max(0.0, min(VHAL.track_length_mm, final_target)),
