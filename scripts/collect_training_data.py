@@ -61,7 +61,7 @@ def main() -> None:
                 import random
                 from breakout.gameplay.entities import create_bricks
                 
-                pattern = random.choice(["solid", "checkerboard", "diamond", "circle", "hollow"])
+                pattern = random.choice(["solid", "checkerboard", "diamond", "hollow"])
                 game.bricks = create_bricks(game.field_rect, pattern)
                 
                 # Randomly destroy some bricks to simulate mid-game states

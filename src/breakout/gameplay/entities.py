@@ -43,9 +43,6 @@ def create_bricks(field_rect: pygame.Rect, pattern_type: str = "solid") -> list[
             elif pattern_type == "diamond":
                 dist = abs(row - 2.5) + abs(column - 3.5)
                 keep = dist <= 3.5
-            elif pattern_type == "circle":
-                dist_sq = (row - 2.5)**2 + (column - 3.5)**2
-                keep = dist_sq <= 8
             elif pattern_type == "hollow":
                 keep = row == 0 or row == BRICKS.rows - 1 or column == 0 or column == BRICKS.columns - 1
                 

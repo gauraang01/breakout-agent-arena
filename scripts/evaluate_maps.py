@@ -31,7 +31,19 @@ def evaluate_pattern(pattern: str, steps: int = 3000):
         
         # 1. Ask the deterministic Math tool for the perfect answer
         game.force_predict_trajectory()
-        true_target = game.prediction.target_mm
+        base_target = game.prediction.target_mm
+        
+        # 1.5 Calculate the true desired strategic offset (just like collect_training_data.py)
+        alive_bricks = [b for b in game.bricks if b.alive]
+        desired_offset = 0.0
+        if alive_bricks:
+            lowest_bottom = max(b.rect.bottom for b in alive_bricks)
+            lowest_bricks = [b for b in alive_bricks if b.rect.bottom == lowest_bottom]
+            avg_x = sum(b.rect.centerx for b in lowest_bricks) / len(lowest_bricks)
+            desired_offset = (avg_x - base_target) * 0.2
+            desired_offset = max(-50.0, min(50.0, desired_offset))
+            
+        true_target = base_target + desired_offset
         
         # 2. Ask the Neural Network for its statistical guess
         neural_pred = game.neural_controller.predict_target_mm(
@@ -40,11 +52,11 @@ def evaluate_pattern(pattern: str, steps: int = 3000):
             ball_dx=game.ball.dx,
             ball_dy=game.ball.dy,
             brick_states=[b.alive for b in game.bricks],
-            base_target=true_target
+            base_target=base_target
         )
         nn_target = neural_pred.target_mm
         
-        # Record the error
+        # Record the error (difference between ideal offset and predicted offset)
         errors.append(abs(true_target - nn_target))
         
         # Step physics forward

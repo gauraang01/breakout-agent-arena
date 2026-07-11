@@ -129,13 +129,13 @@ def predict_reflected_x(
                 
         if hit_idx != -1:
             hit_rect = sim_bricks.pop(hit_idx)
-            overlap_left = ball_rect.right - hit_rect.left
-            overlap_right = hit_rect.right - ball_rect.left
-            overlap_top = ball_rect.bottom - hit_rect.top
-            overlap_bottom = hit_rect.bottom - ball_rect.top
-            min_overlap = min(overlap_left, overlap_right, overlap_top, overlap_bottom)
-
-            if min_overlap in (overlap_left, overlap_right):
+            dx_diff = x - hit_rect.centerx
+            dy_diff = y - hit_rect.centery
+            
+            norm_x = abs(dx_diff) / (hit_rect.width / 2)
+            norm_y = abs(dy_diff) / (hit_rect.height / 2)
+            
+            if norm_x > norm_y:
                 dx *= -1
             else:
                 dy *= -1

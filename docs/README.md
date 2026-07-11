@@ -12,21 +12,13 @@ Stage 4: LLM Agent via Ollama
 - Human control through left and right arrow keys (Mode 1).
 - Neural-network control (Mode 2) after training.
 - LLM Agent control (Mode 3) using a local Ollama model to predict targets via tool-calling.
-- A fully playable Breakout field with ball, bricks, paddle, scoring, lives, and
-  restart flow.
+- A fully playable Breakout field with ball, bricks (Solid, Checkerboard, Diamond, Hollow), paddle, scoring, lives, and restart flow.
+- Maps can be switched before launching the ball using the Left/Right arrow keys.
 - The game currently uses one life and records elapsed/finish time in the UI.
-- The paddle is not moved directly by keyboard input. Keyboard input updates a
-  V-HAL target position, and the V-HAL moves the paddle using velocity and
-  acceleration limits.
-- The Trajectory Predictor predicts the paddle target with reflection geometry and
-  can silently write training samples to `training_data.csv`.
-- The Neural Network Controller loads `mlp_model.pt` and `scaler.json`, predicts the
-  paddle target from observed ball state, and routes that target through V-HAL.
-  Those model files are generated locally by the training script and are not
-  part of source control.
-- A live overlay exposes ball coordinates, ball velocity vector, paddle target,
-  paddle position in pixels, paddle physical position in millimeters, paddle
-  velocity, and V-HAL limits.
+- The paddle is not moved directly by keyboard input. Keyboard input updates a V-HAL target position, and the V-HAL moves the paddle using velocity and acceleration limits.
+- The Trajectory Predictor predicts the paddle target with reflection geometry and can silently write training samples to `training_data.csv`.
+- The Neural Network Controller loads `mlp_model.pt` and `scaler.json`, predicts the paddle target from observed ball state, and routes that target through V-HAL.
+- A dynamic UI featuring mode-switch popups and a segmented telemetry sidebar exposes ball coordinates, tool-calling traces, and V-HAL physical limits.
 
 ## Documentation Map
 

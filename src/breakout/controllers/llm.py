@@ -36,7 +36,7 @@ class LLMAgentController:
             log_callback("[LLM] Thinking...")
             draw_callback()
 
-            # The new approach: give the LLM two tools for strategic aiming
+            # The new approach: give the LLM tools for strategic aiming
             tools = [
                 {
                     "type": "function",
@@ -82,7 +82,7 @@ class LLMAgentController:
             messages = [
                 {
                     "role": "system", 
-                    "content": "You are a strategic Breakout AI. First, think about your strategy. Then, use predict_landing_spot to find where the ball falls. If you want to aim, use calculate_paddle_offset. Finally, output your thoughts!"
+                    "content": 'You are a strategic Breakout AI. First, use predict_landing_spot to find where the ball falls. If you want to aim, use calculate_paddle_offset. Finally, you MUST output a JSON response in the exact format {"base_target_mm": float, "offset_mm": float} containing the values you got from the tools (use 0.0 for offset if you did not aim). Do not output any reasoning, just the JSON object to save time.'
                 },
                 {
                     "role": "user", 
@@ -102,12 +102,14 @@ class LLMAgentController:
             response.raise_for_status()
             
             tool_calls = []
+            assistant_content = ""
             for line in response.iter_lines():
                 if line:
                     chunk = json.loads(line)
                     msg = chunk.get("message", {})
                     content = msg.get("content", "")
                     if content:
+                        assistant_content += content
                         self.traces[log_idx] += content
                         draw_callback()
                     
@@ -118,39 +120,119 @@ class LLMAgentController:
             log_callback(f"[Latency] LLM Thinking Time: {latency:.2f}s")
             draw_callback()
 
-            # We execute the python tool regardless of what the LLM chose, 
-            # but now we can see its streaming thoughts and strategy!
-            prediction = self.trajectory_predictor.predict(
-                ball_x=ball_x, ball_y=ball_y, ball_dx=ball_dx, ball_dy=ball_dy,
-                strike_y=strike_y, field_rect=field_rect, paddle_min_center_x=paddle_min_center_x,
-                paddle_max_center_x=paddle_max_center_x, track_length_mm=track_length_mm,
-                brick_rects=brick_rects
-            )
-            
-            # Simple aiming logic: if LLM tried to use calculate_paddle_offset, apply an offset!
-            target_mm = prediction.target_mm
-            from ..tools.aim_predictor import calculate_paddle_offset
-            from ..config import PADDLE
-            
-            for tool in tool_calls:
-                if tool["function"]["name"] == "calculate_paddle_offset":
-                    try:
-                        args = tool["function"]["arguments"]
-                        if isinstance(args, str):
-                            args = json.loads(args)
-                        aim_x = args.get("target_x", paddle_min_center_x)
-                        
-                        offset_mm = calculate_paddle_offset(
-                            landing_x=target_mm,
-                            paddle_y=strike_y,
-                            target_brick_x=aim_x,
-                            target_brick_y=lowest_brick.centery if lowest_brick else 0.0,
-                            paddle_width=PADDLE.width
+            target_mm = 250.0
+
+            # Execute the tools if requested, and send the result back to the LLM!
+            if tool_calls:
+                messages.append({
+                    "role": "assistant",
+                    "content": assistant_content,
+                    "tool_calls": tool_calls
+                })
+                
+                from ..tools.aim_predictor import calculate_paddle_offset
+                from ..config import PADDLE
+                
+                base_target = 250.0
+                impact_x_px = paddle_min_center_x
+                
+                # First pass: execute predict_landing_spot
+                for tool in tool_calls:
+                    if tool["function"]["name"] == "predict_landing_spot":
+                        prediction = self.trajectory_predictor.predict(
+                            ball_x=ball_x, ball_y=ball_y, ball_dx=ball_dx, ball_dy=ball_dy,
+                            strike_y=strike_y, field_rect=field_rect, paddle_min_center_x=paddle_min_center_x,
+                            paddle_max_center_x=paddle_max_center_x, track_length_mm=track_length_mm,
+                            brick_rects=brick_rects
                         )
-                        target_mm += offset_mm
-                        log_callback(f"[PYTHON] Applying calculated offset: {offset_mm:.1f}mm")
-                    except Exception:
-                        pass
+                        base_target = prediction.target_mm
+                        impact_x_px = prediction.impact_x_px
+                        
+                        # If the trajectory predictor added a random angled offset, remove it so the LLM can aim purely
+                        if prediction.angled_hit:
+                            from ..tools.trajectory_predictor import pixel_center_x_to_track_mm
+                            base_target = pixel_center_x_to_track_mm(
+                                impact_x_px, paddle_min_center_x, paddle_max_center_x, track_length_mm
+                            )
+                            
+                        log_callback(f"[PYTHON] predict_landing_spot: {base_target:.1f}mm")
+                        messages.append({
+                            "role": "tool",
+                            "name": tool["function"]["name"],
+                            "content": json.dumps({"target_mm": base_target})
+                        })
+                        draw_callback()
+                
+                # Second pass: execute calculate_paddle_offset
+                for tool in tool_calls:
+                    if tool["function"]["name"] == "calculate_paddle_offset":
+                        try:
+                            args = tool["function"]["arguments"]
+                            if isinstance(args, str):
+                                args = json.loads(args)
+                            aim_x = args.get("target_x", paddle_min_center_x)
+                            
+                            offset_px = calculate_paddle_offset(
+                                landing_x=impact_x_px,
+                                paddle_y=strike_y,
+                                target_brick_x=aim_x,
+                                target_brick_y=lowest_brick.centery if lowest_brick else 0.0,
+                                paddle_width=PADDLE.width
+                            )
+                            # Convert pixel offset to hardware mm offset
+                            px_range = paddle_max_center_x - paddle_min_center_x
+                            offset_mm = offset_px * (track_length_mm / px_range) if px_range > 0 else 0.0
+                            log_callback(f"[PYTHON] calculate_paddle_offset: {offset_mm:.1f}mm")
+                            messages.append({
+                                "role": "tool",
+                                "name": tool["function"]["name"],
+                                "content": json.dumps({
+                                    "offset_mm": offset_mm
+                                })
+                            })
+                            draw_callback()
+                        except Exception as e:
+                            messages.append({
+                                "role": "tool",
+                                "name": tool["function"]["name"],
+                                "content": json.dumps({"error": str(e)})
+                            })
+                            
+                # Final roundtrip back to the LLM to get the JSON synthesis
+                self.traces.append("LLM (Synthesizing JSON): ")
+                log_idx = len(self.traces) - 1
+                log_callback("LLM (Synthesizing JSON): ")
+                draw_callback()
+                
+                response = requests.post("http://localhost:11434/api/chat", json={
+                    "model": LLM.model,
+                    "messages": messages,
+                    "format": "json", # Force it to return guaranteed JSON output
+                    "stream": True
+                }, stream=True, timeout=None)
+                response.raise_for_status()
+                
+                final_content = ""
+                for line in response.iter_lines():
+                    if line:
+                        chunk = json.loads(line)
+                        msg = chunk.get("message", {})
+                        content = msg.get("content", "")
+                        if content:
+                            final_content += content
+                            self.traces[log_idx] += content
+                            draw_callback()
+                
+                # Parse the guaranteed JSON
+                try:
+                    final_data = json.loads(final_content)
+                    base_target_mm = float(final_data.get("base_target_mm", 250.0))
+                    offset_mm = float(final_data.get("offset_mm", 0.0))
+                    
+                    target_mm = base_target_mm - offset_mm
+                    log_callback(f"[PYTHON] Final Math: {base_target_mm:.1f} - {offset_mm:.1f} = {target_mm:.1f}mm")
+                except Exception as e:
+                    log_callback(f"[ERROR] JSON parse failed: {e}")
             
             total_latency = time.time() - start_time
             log_callback(f"[Latency] Total Pipeline Time: {total_latency:.2f}s")

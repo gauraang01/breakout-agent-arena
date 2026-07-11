@@ -11,11 +11,14 @@ python3 start.py
 
 Controls:
 
-- `1`: Manual mode
-- `2`: Neural Network mode
-- `3`: LLM Agent mode (Requires Ollama)
-- Space: launch/restart
-- Escape: quit
+- `1`: Manual mode (Hold Left/Right arrow keys to drive paddle to ends)
+- `2`: Neural Network mode (Real-time autonomous control)
+- `3`: LLM Agent mode (Requires Ollama for tool-calling)
+- `Left/Right Arrows` (Before launch): Switch Maps (Solid, Checkerboard, Diamond, Hollow)
+- Space: Launch ball / Restart
+- Escape: Quit
+
+The game features dynamic UI popups and a segmented telemetry sidebar to clearly display which architecture is actively driving the physical paddle.
 
 Stage 3 workflow:
 

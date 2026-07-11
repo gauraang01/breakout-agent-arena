@@ -49,7 +49,7 @@ class GameplayConfig:
 
 @dataclass(frozen=True)
 class LLMConfig:
-    model: str = "qwen2.5:1.5b"
+    model: str = "qwen2.5:7b"
 
 
 SCREEN = ScreenConfig()

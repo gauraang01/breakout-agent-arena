@@ -41,7 +41,7 @@ class BreakoutGame:
         self.ball = self._new_attached_ball()
         
         self.pattern_idx = 0
-        self.patterns = ["solid", "checkerboard", "diamond", "circle", "hollow"]
+        self.patterns = ["solid", "checkerboard", "diamond", "hollow"]
         self.bricks: list[Brick] = create_bricks(self.field_rect, self.patterns[self.pattern_idx])
 
         self.manual_controller = ManualController()
@@ -62,12 +62,16 @@ class BreakoutGame:
         self.lives = GAMEPLAY.lives
         self.elapsed_time_s = 0.0
         self.final_time_s: float | None = None
+        self.popup_message = ""
+        self.popup_timer = 0.0
         self.running = True
 
     def run(self) -> None:
         try:
             while self.running:
                 dt_s = min(self.clock.tick(SCREEN.fps) / 1000.0, 1.0 / 30.0)
+                if self.popup_timer > 0:
+                    self.popup_timer = max(0.0, self.popup_timer - dt_s)
                 self.frame += 1
                 self._handle_events()
                 self._handle_input()
@@ -117,14 +121,21 @@ class BreakoutGame:
             self.control_mode = ControlMode.MANUAL
             self.prediction = None
             self.neural_prediction = None
+            self.popup_message = "Mode: Manual Control"
+            self.popup_timer = 2.0
         elif key == pygame.K_2:
             self.control_mode = ControlMode.NEURAL_NETWORK
             self.prediction = None
+            self.popup_message = "Mode: Neural Network"
+            self.popup_timer = 2.0
         elif key == pygame.K_3:
             self.control_mode = ControlMode.LLM_AGENT
             self.prediction = None
             self.neural_prediction = None
+            self.llm_acted_this_flight = False
             self.llm_controller.clear_traces()
+            self.popup_message = "Mode: LLM Agent"
+            self.popup_timer = 2.0
 
     def _handle_space(self) -> None:
         if self.state in {PlayState.READY, PlayState.LOST_BALL}:
@@ -177,7 +188,6 @@ class BreakoutGame:
 
     def _handle_llm_agent_input(self) -> None:
         if self.ball.dy > 0:
-            self.llm_acted_this_flight = False
             return
             
         if self.ball.dy < 0 and not getattr(self, 'llm_acted_this_flight', False):
@@ -234,7 +244,12 @@ class BreakoutGame:
         self.ball.y += self.ball.dy * dt_s
 
         resolve_wall_collisions(self.ball, self.field_rect)
+        
+        old_dy = self.ball.dy
         resolve_paddle_collision(self.ball, self.paddle_rect())
+        if old_dy > 0 and self.ball.dy < 0:
+            self.llm_acted_this_flight = False
+            
         self.score += resolve_brick_collision(self.ball, self.bricks)
         
         if self.ball.dy > 0 and self.ball.y > 400 and getattr(self, "llm_is_calculating", False):
@@ -278,6 +293,7 @@ class BreakoutGame:
         angle = math.radians(random.choice([58, 64, 116, 122]))
         self.ball.dx = math.cos(angle) * BALL.speed_px_s
         self.ball.dy = -abs(math.sin(angle) * BALL.speed_px_s)
+        self.llm_acted_this_flight = False
 
     def _new_vhal(self) -> VirtualPaddleHAL:
         return VirtualPaddleHAL.centered(
@@ -312,8 +328,22 @@ class BreakoutGame:
                     lowest_bottom = max(b.rect.bottom for b in alive_bricks)
                     lowest_bricks = [b for b in alive_bricks if b.rect.bottom == lowest_bottom]
                     avg_x = sum(b.rect.centerx for b in lowest_bricks) / len(lowest_bricks)
-                    desired_offset = (avg_x - self.prediction.target_mm) * 0.2
-                    desired_offset = max(-50.0, min(50.0, desired_offset))
+                    
+                    from ..config import BRICKS, PADDLE, VHAL, BALL
+                    from ..tools.aim_predictor import calculate_paddle_offset
+                    offset_px = calculate_paddle_offset(
+                        landing_x=self.prediction.impact_x_px,
+                        paddle_y=self.paddle_y - BALL.radius,
+                        target_brick_x=avg_x,
+                        target_brick_y=lowest_bottom - BRICKS.height / 2,
+                        paddle_width=PADDLE.width
+                    )
+                    
+                    px_range = self.paddle_max_center_x - self.paddle_min_center_x
+                    offset_mm = offset_px * (VHAL.track_length_mm / px_range) if px_range > 0 else 0.0
+                    
+                    # Paddle center must shift opposite to the desired ball impact point
+                    desired_offset = -offset_mm
 
                 self.training_logger.log(
                     frame=self.frame,
