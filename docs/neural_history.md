@@ -4,7 +4,7 @@ After the LLM approach proved too slow for real-time control, we pivoted to trai
 
 ## 1. Initial Multi-Layer Perceptron (Physics Engine) - `Commit 67c08e4`
 
-Our first neural approach was a lightweight dense Multi-Layer Perceptron (MLP). The theoretical goal was to train the neural network to act as an end-to-end physics engine. It received basic game state features and was trained via supervised learning to predict the final X-coordinate landing spot of the ball.
+Our first neural approach was a lightweight **Dense Feed-Forward Multi-Layer Perceptron (MLP)**. The theoretical goal was to train the neural network to act as an end-to-end physics engine. It received basic game state features and was trained via **Supervised Learning (Regression)** using Mean Squared Error (MSE) loss to predict the final X-coordinate landing spot of the ball.
 
 ### Pros & Cons
 - **Pros:** Inference took less than a millisecond, completely solving the fatal latency issues we experienced with the LLM approach. The paddle tracked targets at 60 FPS.
@@ -15,7 +15,7 @@ Our first neural approach was a lightweight dense Multi-Layer Perceptron (MLP). 
 
 ## 2. Upgrading to 52 Inputs - `Commit aa58a7f`
 
-We theorized that the model failed because it didn't have enough environmental context to map the bounces. We expanded the input layer from basic coordinates to 52 full features: `Ball X`, `Ball Y`, `Ball dX`, `Ball dY`, and 48 individual boolean states representing every brick on the board. We also standardized the map rendering so the model always received a uniform 52-length array regardless of how many bricks were destroyed.
+We theorized that the model failed because it didn't have enough environmental context to map the bounces. We expanded the input layer of the **Supervised Feed-Forward MLP** from basic coordinates to 52 full features: `Ball X`, `Ball Y`, `Ball dX`, `Ball dY`, and 48 individual boolean states representing every brick on the board. We also standardized the map rendering so the model always received a uniform 52-length array regardless of how many bricks were destroyed.
 
 ### Pros & Cons
 - **Pros:** The model now had full visibility of the entire game board, theoretically giving it the data required to calculate ricochets.
@@ -23,6 +23,9 @@ We theorized that the model failed because it didn't have enough environmental c
 
 *(Note: We also attempted spatial classification—dividing the screen into 50 probability bins to solve the regression averaging issue. However, this led to the **Expected Value Trap**, where a bimodal distribution (e.g., 50% chance of landing far left, 50% far right) would still average out to the dead center. When we forced it to pick the highest probability bin (Argmax), the paddle chattered violently between bins.)*
 
+### Why not Reinforcement Learning (RL) or Recurrent Neural Networks (RNN/LSTM)?
+We explicitly avoided **Reinforcement Learning (RL)** (like PPO or DQN) and **Unsupervised Learning** because RL is notoriously sample-inefficient. An RL agent requires millions of trial-and-error episodes to randomly stumble upon the basic physics of a bouncing ball before it even begins to learn strategy. By leveraging our mathematical raytracer to generate perfect ground-truth labels, we could use highly efficient **Supervised Learning** to train the model to superhuman levels in just a few minutes. 
+We also considered **Recurrent Neural Networks (RNN/LSTM)** to track the ball's trajectory over time, but time-series models still suffer from the exact same continuous-chaos physics constraints as dense MLPs. Small errors in the physics prediction just endlessly compound and accumulate over the sequence.
 ---
 
 ## 3. The 2D Spatial CNN Aiming Agent - `Commit a336918`
@@ -31,7 +34,7 @@ Realizing that dense neural networks struggle with rigid mathematical physics, w
 
 1. **The Math:** We brought back the deterministic mathematical raytracer from the LLM era to handle the chaotic base physics perfectly.
 2. **The Vision:** We reconstructed the 52 raw features into a 2-channel 2D spatial image grid. Channel 0 contained the spatial arrangement of the bricks, and Channel 1 tracked the spatial location of the ball.
-3. **The Strategy:** We swapped the dense MLP for a Convolutional Neural Network (CNN). The CNN was trained *not* to predict where the ball would land, but to predict a **Strategic Offset** (-50 mm to +50 mm) that could be layered on top of the math raytracer's prediction to snipe specific bricks.
+3. **The Strategy:** We swapped the dense MLP for a **Supervised Convolutional Neural Network (CNN)**. The CNN was trained via supervised regression *not* to predict where the ball would land, but to predict a **Strategic Offset** (-50 mm to +50 mm) that could be layered on top of the math raytracer's prediction to snipe specific bricks.
 
 ### Pros & Cons
 - **Pros (Flawless Execution):** By delegating the chaotic physics to the raytracer, the CNN was free to leverage its natural spatial intuition to "see" gaps in the bricks and apply precise, intelligent offsets to the paddle. It achieves zero-latency superhuman gameplay.
