@@ -66,9 +66,15 @@ class GameRenderer:
         pygame.draw.rect(self.screen, (197, 244, 255), paddle_rect, width=2, border_radius=4)
 
     def _draw_overlay(self, game) -> None:
-        overlay_rect = pygame.Rect(48, SCREEN.height - 236, 520, 188)
-        pygame.draw.rect(self.screen, COLORS["overlay"], overlay_rect, border_radius=4)
-        pygame.draw.rect(self.screen, COLORS["field_border"], overlay_rect, width=1, border_radius=4)
+        # Move overlay to the bottom of the right sidebar to avoid obstructing the paddle
+        overlay_rect = pygame.Rect(
+            game.sidebar_rect.left + 24,
+            SCREEN.height - 236,
+            game.sidebar_rect.width - 48,
+            188
+        )
+        pygame.draw.rect(self.screen, COLORS["background"], overlay_rect)
+        pygame.draw.rect(self.screen, COLORS["field_border"], overlay_rect, width=2, border_radius=4)
 
         paddle_rect = game.paddle_rect()
         predicted_x = game.prediction.impact_x_px if game.prediction else game.ball.x
