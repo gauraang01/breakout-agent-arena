@@ -45,8 +45,9 @@ class NeuralNetworkController:
         try:
             # Trajectory Lock: Arduino motors hate micro-jitters.
             # Since base_target is mathematically perfect, it stays exactly identical for an entire flight path.
-            # If base_target hasn't changed, the ball hasn't bounced, so we just freeze the previous Neural Target!
-            if hasattr(self, 'last_base_target') and abs(self.last_base_target - base_target) < 0.1:
+            # Floating point noise can cause base_target to drift by 0.5-2.0 mm per frame.
+            # We use a 5.0 mm tolerance to ensure we only break the lock if a true physical bounce happens.
+            if hasattr(self, 'last_base_target') and abs(self.last_base_target - base_target) < 5.0:
                 return NeuralPrediction(target_mm=self.locked_target, available=True)
 
             features = [ball_x, ball_y, ball_dx, ball_dy] + [1.0 if alive else 0.0 for alive in brick_states]
