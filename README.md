@@ -9,8 +9,8 @@
 ---
 
 ## 🎥 Demo
-*(Drag and drop your LinkedIn video or GIF here!)*
-<!-- Example: ![Breakout Demo](assets/demo.gif) -->
+
+https://github.com/user-attachments/assets/72b850f6-8b25-4491-a542-902b229aa763
 
 ---
 
@@ -56,8 +56,8 @@ Instead of guessing, the LLM uses intelligent **tool-calling** to delegate to a 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/ai-augmented-breakout.git
-   cd ai-augmented-breakout
+   git clone https://github.com/gauraang01/llm-vs-nn-breakout.git
+   cd llm-vs-nn-breakout
    ```
 
 2. **Install dependencies**
