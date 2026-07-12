@@ -6,12 +6,9 @@ Train a neural model that acts as a **Strategic Aiming Agent**. Instead of forci
 
 ## Architecture
 
-The model is a **2D Spatial CNN**.
-During inference and training, the raw coordinates (`ball_x`, `ball_y`, `bricks`) are plotted onto a 2-channel 2D Grid:
-- **Channel 0**: A 2D spatial representation of the alive bricks.
-- **Channel 1**: A spatial dot representing the ball's current location.
-
-This allows the convolutional layers to physically "see" the board state and the ball's approach, naturally extracting geometric features. The CNN then outputs a single Regression value representing the strategic paddle offset.
+The model is a **Spatial Density MLP**.
+Instead of passing the exact coordinates of all 48 bricks (which leads to overfitting and chaos when bricks break mid-flight), the board is reduced to three macro-features: `left_d`, `center_d`, and `right_d`. 
+This allows the neural network to develop a generalized spatial intuition. The Multi-Layer Perceptron (MLP) digests these 3 density zones alongside the ball's trajectory and outputs a single Regression value representing the strategic paddle offset.
 
 ## Data Acquisition
 
@@ -21,12 +18,12 @@ Run:
 python3 scripts/collect_training_data.py --rows 30000
 ```
 
-The collector runs headless and fast. It generates a dataset of "Perfect Strategic Aiming". Instead of forcing the data collector to just catch the ball, it mathematically identifies the lowest cluster of alive bricks, calculates the exact geometric paddle offset required to bounce the ball directly into that cluster, and logs that offset as the Ground Truth label.
+The collector runs headless and fast. It generates a dataset of "Perfect Strategic Aiming". Instead of forcing the data collector to target the lowest individual brick (which contradicts macro-density features), it mathematically calculates the geometric center of the **highest density zone** and logs the geometric paddle offset required to bounce the ball directly into that zone.
 
 CSV schema:
 
 ```text
-ball_x,ball_y,ball_dx,ball_dy,b0...b47,target_paddle_mm
+ball_x,ball_y,ball_dx,ball_dy,left_d,center_d,right_d,target_paddle_mm
 ```
 
 `target_paddle_mm` contains the strategic offset from the deterministic landing spot.
@@ -42,8 +39,8 @@ python3 scripts/train_mlp_model.py
 The training script:
 
 - Reads `training_data.csv`.
-- Maps coordinates to the 2D Spatial Grid on the fly.
-- Trains a PyTorch CNN using Mean Squared Error (MSE) loss.
+- Maps features to a 7-element vector.
+- Trains a PyTorch MLP using Mean Squared Error (MSE) loss.
 - Saves `mlp_model.pt`
 
 The model achieves extremely low MAE (e.g. ~2.1 mm) when predicting the ideal strategic offset.

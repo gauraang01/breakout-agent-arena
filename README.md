@@ -1,41 +1,109 @@
-# Breakout
+# 🤖 AI-Augmented Breakout: An Architecture Showcase
 
-A staged Breakout project where the paddle is constrained by a Virtual Hardware
-Abstraction Layer that simulates a 0-500 mm physical rail.
+> **A real-time physics playground built to test and compare fundamentally different AI control architectures (LLMs vs. Neural Networks) in a simulated robotics environment.**
 
-## Run
+![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
+![PyTorch](https://img.shields.io/badge/PyTorch-Enabled-EE4C2C.svg)
+![Ollama](https://img.shields.io/badge/Ollama-LLM_Agent-white.svg)
 
+---
+
+## 🎥 Demo
+*(Drag and drop your LinkedIn video or GIF here!)*
+<!-- Example: ![Breakout Demo](assets/demo.gif) -->
+
+---
+
+## 🧠 The Concept
+
+Can an LLM Agent play a real-time physics game? How does it compare to a traditional Neural Network?
+
+To answer this, I built a custom Breakout engine featuring a **Virtual Hardware Abstraction Layer (V-HAL)**. The paddle doesn't just teleport—it simulates a physical NEMA-17 stepper motor on a 500mm rail, complete with strict physical limits for maximum velocity and acceleration. 
+
+The engine allows you to hot-swap between three distinct "brains" mid-flight to see how different architectures handle spatial reasoning, latency, and real-time execution.
+
+## 🎮 The Three Architectures (Hot-Swappable)
+
+### 1️⃣ Manual Control (`Press 1`)
+The baseline control loop. Flawless tracking and zero software latency, but entirely bound by human reaction times. You are constrained by the exact same physical motor limits as the AI.
+
+### 2️⃣ Neural Network (MLP) (`Press 2`)
+An optimized statistical guesser. By using spatial pooling to reduce the entire brick grid into localized density zones, the model runs inference in under a millisecond. 
+- **The Result:** Absolute perfection. It calculates the exact physical paddle offsets in microseconds, executing real-time control effortlessly.
+
+### 3️⃣ LLM Agent (Local 8B Parameter) (`Press 3`)
+Instead of guessing, the LLM uses intelligent **tool-calling** to delegate to a Python `TrajectoryPredictor`. It orchestrates the logic, reads the environment, and synthesizes JSON commands to drive the motor.
+- **The Result:** It perfectly highlights the limitations of Generative AI in robotics. The latency of the cognitive loop forces the game to pause, and occasional "hallucinated" numbers lead to missed shots. It’s a brilliant thinker, but struggles in high-frequency spatial loops.
+
+---
+
+## 🛠️ Technical Highlights
+
+* **Virtual Hardware Abstraction (V-HAL):** Maps sub-pixel game coordinates to physical millimeters, simulating mass and momentum.
+* **The "Ghost Brick" Delusion:** The project involved heavy debugging of geometric folding equations. We discovered that forcing models to predict upward flights accidentally trained them to clone mathematical delusions of an empty room, requiring dynamic ray-casting for true clairvoyance.
+* **Dynamic Telemetry UI:** A custom Pygame UI featuring segmented mode buttons, tool-calling traces, and fading badges to clearly expose the active architecture's inner workings to the viewer.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.10+
+- [Ollama](https://ollama.ai/) (Required for Mode 3)
+- PyTorch (Required for Mode 2)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/ai-augmented-breakout.git
+   cd ai-augmented-breakout
+   ```
+
+2. **Install dependencies**
+   ```bash
+   python3 -m pip install -e .
+   ```
+
+3. **Pull the LLM** (Ensure Ollama is running)
+   ```bash
+   ollama pull qwen2.5:7b
+   ```
+
+### Run the Game
 ```bash
 python3 start.py
 ```
 
-Controls:
+### Controls
+- `1`: Manual Mode
+- `2`: Neural Network Mode
+- `3`: LLM Agent Mode
+- `Left/Right Arrows`: Switch Maps (Solid, Checkerboard, Diamond, Hollow) *Before launch*
+- `Space`: Launch Ball / Restart
+- `Escape`: Quit
 
-- `1`: Manual mode (Hold Left/Right arrow keys to drive paddle to ends)
-- `2`: Neural Network mode (Real-time autonomous control)
-- `3`: LLM Agent mode (Requires Ollama for tool-calling)
-- `Left/Right Arrows` (Before launch): Switch Maps (Solid, Checkerboard, Diamond, Hollow)
-- Space: Launch ball / Restart
-- Escape: Quit
+---
 
-The game features dynamic UI popups and a segmented telemetry sidebar to clearly display which architecture is actively driving the physical paddle.
+## 🧪 Training the Neural Network from Scratch
 
-Stage 3 workflow:
+Want to train your own model? The engine includes an automated headless data harvester.
 
 ```bash
+# 1. Harvest 20,000 frames of flawless geometric gameplay
 python3 scripts/collect_training_data.py --rows 20000
+
+# 2. Train the Multi-Layer Perceptron (Generates mlp_model.pt)
 python3 scripts/train_mlp_model.py
+
+# 3. Play the game!
 python3 start.py
 ```
 
-When the mathematical controller is active, downward-ball samples are written every 4
-frames to `training_data.csv`.
+---
 
-Or install the package in editable mode:
+## 📚 Documentation
+For a deeper dive into the physics engine, coordinate mapping, and runtime flow, check out the [Architecture Docs](docs/README.md).
 
-```bash
-python3 -m pip install -e .
-python3 -m breakout
-```
-
-Project planning and architecture notes are in [docs/README.md](docs/README.md).
+---
+*Built as a showcase for AI Architecture, Machine Learning, and Software Engineering.*

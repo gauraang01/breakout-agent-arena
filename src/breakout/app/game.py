@@ -176,12 +176,15 @@ class BreakoutGame:
         if self.neural_controller.available:
             self.force_predict_trajectory()
             base_target = self.prediction.target_mm if self.prediction else 250.0
+            left_d, center_d, right_d = self._calculate_brick_densities()
             self.neural_prediction = self.neural_controller.predict_target_mm(
                 ball_x=self.ball.x,
                 ball_y=self.ball.y,
                 ball_dx=self.ball.dx,
                 ball_dy=self.ball.dy,
-                brick_states=[b.alive for b in self.bricks],
+                left_d=left_d,
+                center_d=center_d,
+                right_d=right_d,
                 base_target=base_target
             )
             self.vhal.set_target_mm(self.neural_prediction.target_mm)
@@ -324,17 +327,25 @@ class BreakoutGame:
                 # Calculate strategic aiming offset for the training dataset
                 alive_bricks = [b for b in self.bricks if b.alive]
                 desired_offset = 0.0
+                left_d, center_d, right_d = self._calculate_brick_densities()
                 if alive_bricks:
+                    # Target the highest density zone to perfectly correlate with the Neural Network's features
+                    densities = [
+                        (left_d, self.field_rect.left + self.field_rect.width / 6.0),
+                        (center_d, self.field_rect.left + self.field_rect.width / 2.0),
+                        (right_d, self.field_rect.left + 5.0 * self.field_rect.width / 6.0),
+                    ]
+                    densities.sort(key=lambda x: x[0], reverse=True)
+                    best_target_x = densities[0][1]
+                    
                     lowest_bottom = max(b.rect.bottom for b in alive_bricks)
-                    lowest_bricks = [b for b in alive_bricks if b.rect.bottom == lowest_bottom]
-                    avg_x = sum(b.rect.centerx for b in lowest_bricks) / len(lowest_bricks)
                     
                     from ..config import BRICKS, PADDLE, VHAL, BALL
                     from ..tools.aim_predictor import calculate_paddle_offset
                     offset_px = calculate_paddle_offset(
                         landing_x=self.prediction.impact_x_px,
                         paddle_y=self.paddle_y - BALL.radius,
-                        target_brick_x=avg_x,
+                        target_brick_x=best_target_x,
                         target_brick_y=lowest_bottom - BRICKS.height / 2,
                         paddle_width=PADDLE.width
                     )
@@ -351,7 +362,9 @@ class BreakoutGame:
                     ball_y=self.ball.y,
                     ball_dx=self.ball.dx,
                     ball_dy=self.ball.dy,
-                    brick_states=[b.alive for b in self.bricks],
+                    left_d=left_d,
+                    center_d=center_d,
+                    right_d=right_d,
                     target_paddle_mm=desired_offset,
                 )
 

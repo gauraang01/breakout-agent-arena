@@ -70,8 +70,8 @@ def main() -> None:
 
     torch.manual_seed(42)
     data = torch.tensor(rows, dtype=torch.float32, device=device)
-    x = data[:, :52]
-    y_mm = data[:, 52:53] # raw target_mm (which is now offset)
+    x = data[:, :7]
+    y_mm = data[:, 7:8] # target offset
     
     permutation = torch.randperm(len(data))
     split = int(len(data) * 0.8)
@@ -83,7 +83,7 @@ def main() -> None:
     x_test = x[test_idx]
     y_test_mm = y_mm[test_idx]
 
-    # No statistical scaling needed, the CNN handles raw pixel coords!
+    # No statistical scaling needed, the MLP handles raw/normalized coords!
     x_train_scaled = x_train
     x_test_scaled = x_test
 
@@ -124,8 +124,8 @@ def main() -> None:
     args.scaler_output.write_text(
         json.dumps(
             {
-                "mean": [0.0] * 52,
-                "std": [1.0] * 52,
+                "mean": [0.0] * 7,
+                "std": [1.0] * 7,
             },
             indent=2,
         ),
@@ -146,7 +146,7 @@ def _read_rows(path: Path) -> list[list[float]]:
     rows: list[list[float]] = []
     with path.open(newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
-        feature_cols = ["ball_x", "ball_y", "ball_dx", "ball_dy"] + [f"b{i}" for i in range(48)]
+        feature_cols = ["ball_x", "ball_y", "ball_dx", "ball_dy", "left_d", "center_d", "right_d"]
         required = feature_cols + ["target_paddle_mm"]
         if reader.fieldnames != required:
             raise SystemExit(f"Expected columns {required}; found {reader.fieldnames}")

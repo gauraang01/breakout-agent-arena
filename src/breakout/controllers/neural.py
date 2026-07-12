@@ -38,7 +38,7 @@ class NeuralNetworkController:
             and self.torch is not None
         )
 
-    def predict_target_mm(self, ball_x: float, ball_y: float, ball_dx: float, ball_dy: float, brick_states: list[bool], base_target: float = 250.0) -> NeuralPrediction:
+    def predict_target_mm(self, ball_x: float, ball_y: float, ball_dx: float, ball_dy: float, left_d: float, center_d: float, right_d: float, base_target: float = 250.0) -> NeuralPrediction:
         if not self.available or self.model is None:
             return NeuralPrediction(target_mm=base_target, available=False, reason=self.load_error)
             
@@ -50,7 +50,7 @@ class NeuralNetworkController:
             if hasattr(self, 'last_base_target') and abs(self.last_base_target - base_target) < 5.0:
                 return NeuralPrediction(target_mm=self.locked_target, available=True)
 
-            features = [ball_x, ball_y, ball_dx, ball_dy] + [1.0 if alive else 0.0 for alive in brick_states]
+            features = [ball_x, ball_y, ball_dx, ball_dy, left_d, center_d, right_d]
             with self.torch.no_grad():
                 tensor = self.torch.tensor([features], dtype=self.torch.float32)
                 strategic_offset = self.model(tensor).item()
